@@ -178,3 +178,17 @@ async def refresh_token(
         "token_type": "bearer",
         "user": user
     }
+
+# Dependency to get current user
+async def get_current_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
+
+# Dependency to check if user is admin
+async def require_admin(user_id: int, db: Session = Depends(get_db)):
+    user = await get_current_user(user_id, db)
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user

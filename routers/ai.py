@@ -113,6 +113,7 @@ def build_user_interest_profile(user: User) -> set[str]:
     interests = set()
     for text in corpus:
         interests.update(extract_keywords(text, limit=8))
+        interests.update(extract_keywords(text,ss limit=8))
     return interests
 
 

@@ -26,6 +26,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_verified = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
     
     # Relationships
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
