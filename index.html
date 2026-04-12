@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <a class="skip-link" href="#mainContainer">Skip to main content</a>
@@ -16,7 +16,7 @@
     <header id="mainHeader" class="site-header">
         <div class="header-shell">
             <div class="brand-block">
-                <span class="eyebrow">Human-first social platform</span>
+                <span class="eyebrow">Human-Second Generation social platform</span>
                 <div class="brand-line">
                     <h1>Connect Hub</h1>
                     <span class="brand-pill">Calm by design</span>
@@ -30,6 +30,7 @@
                     <input type="text" id="searchInput" placeholder="Find posts, people, or hashtags" />
                 </label>
                 <button id="themeToggle" class="utility-btn" type="button" aria-label="Toggle theme">Theme</button>
+                <button id="nsfwBtn" class="hidden-btn" type="button" title="NSFW Space">🔥</button>
                 <button id="dmBtn" class="utility-btn" type="button">Inbox <span id="dmBadge" class="notification-badge">0</span></button>
                 <button id="notificationsBtn" class="utility-btn" type="button">Alerts <span id="notificationCount" class="notification-badge">0</span></button>
                 <button id="settingsBtn" class="utility-btn" type="button">Settings</button>
@@ -155,7 +156,7 @@
 
                     <div class="creator-panel">
                         <div class="creator-avatar">
-                            <img src="Images/MYPHOTO.jpeg.jpeg" alt="Portrait of Arihant Kashyap" />
+                            <img src="/static/Images/MYPHOTO.jpeg.jpeg" alt="Portrait of Arihant Kashyap" />
                         </div>
                         <div class="creator-info">
                             <h3>Arihant Kashyap</h3>
@@ -204,6 +205,10 @@
                                             <option value="news">News</option>
                                         </select>
                                     </label>
+                                    <label for="nsfwCheckbox" class="nsfw-label">
+                                        <input type="checkbox" id="nsfwCheckbox" />
+                                        <span>NSFW (18+)</span>
+                                    </label>
                                 </div>
                             </div>
 
@@ -237,11 +242,41 @@
                                 <span class="ai-label">Best Category</span>
                                 <strong id="aiCategory">general</strong>
                             </div>
+                            <div class="ai-metric-card">
+                                <span class="ai-label">Clarity Score</span>
+                                <strong id="aiClarity">0</strong>
+                            </div>
+                            <div class="ai-metric-card">
+                                <span class="ai-label">Read Time</span>
+                                <strong id="aiReadTime">0s</strong>
+                            </div>
                         </div>
 
                         <div class="ai-summary-card">
                             <p id="aiSummary">Write a draft and run analysis to see AI-generated insights here.</p>
                             <p id="aiTip" class="ai-tip">Tips will appear after analysis.</p>
+                            <div class="ai-coach-grid">
+                                <div class="ai-coach-card">
+                                    <h3>Strengths</h3>
+                                    <ul id="aiStrengths" class="ai-list">
+                                        <li>Your strongest points will show up here.</li>
+                                    </ul>
+                                </div>
+                                <div class="ai-coach-card">
+                                    <h3>Next Moves</h3>
+                                    <ul id="aiActions" class="ai-list">
+                                        <li>Actionable coaching will appear after analysis.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ai-rewrite-card">
+                            <div class="ai-rewrite-header">
+                                <h3>AI Rewrite</h3>
+                                <button type="button" id="applyRewriteBtn">Use Rewrite</button>
+                            </div>
+                            <p id="aiRewrite">Analyze a draft to generate a stronger rewrite.</p>
                         </div>
 
                         <div class="ai-hashtag-row">
@@ -311,7 +346,7 @@
 
                 <div id="loginForm" class="auth-form">
                     <h2>Login</h2>
-                    <input type="email" id="loginEmail" placeholder="Email" required />
+                    <input type="text" id="loginUsername" placeholder="Username" required />
                     <input type="password" id="loginPassword" placeholder="Password" required />
                     <button id="loginBtn" type="button">Login</button>
                     <p id="loginError" class="error"></p>
@@ -319,6 +354,7 @@
 
                 <div id="signupForm" class="auth-form">
                     <h2>Create Account</h2>
+                    <input type="text" id="signupUsername" placeholder="Username" required />
                     <input type="text" id="signupName" placeholder="Full Name" required />
                     <input type="email" id="signupEmail" placeholder="Email" required />
                     <input type="password" id="signupPassword" placeholder="Password" required />
@@ -433,6 +469,33 @@
         </div>
     </div>
 
+    <div id="ageVerificationModal" class="modal">
+        <div class="modal-content">
+            <span class="close" role="button" tabindex="0" aria-label="Close age verification">&times;</span>
+            <h2>Age Verification Required</h2>
+            <p>You must be 18+ to access adult content.</p>
+            <div class="age-verification-options">
+                <button id="confirm18Plus" type="button">I am 18+</button>
+                <button id="under18" type="button">I am under 18</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="nsfwModal" class="modal">
+        <div class="modal-content large">
+            <span class="close" role="button" tabindex="0" aria-label="Close NSFW modal">&times;</span>
+            <div class="nsfw-header">
+                <h2>🔥 NSFW Space</h2>
+                <p>18+ content: Kinky, Fetish, Anime & More</p>
+            </div>
+            <div id="nsfwFeed" class="feed"></div>
+            <div class="nsfw-composer">
+                <textarea id="nsfwContent" placeholder="Share your NSFW thoughts..." rows="3"></textarea>
+                <button id="postNsfwBtn" type="button">Post NSFW</button>
+            </div>
+        </div>
+    </div>
+
     <div id="emojiPicker" class="emoji-picker">
         <div class="emoji-grid">
             <span>&#128512;</span>
@@ -462,8 +525,27 @@
         </div>
     </div>
 
+    <div id="chatbotBtn" class="chatbot-btn" title="Ask about Connect Hub">
+        <span>💬</span>
+    </div>
+
+    <div id="chatbotModal" class="modal">
+        <div class="modal-content chatbot-modal">
+            <span class="close" role="button" tabindex="0" aria-label="Close chatbot">&times;</span>
+            <div class="chatbot-header">
+                <h2>Connect Hub Assistant</h2>
+                <p>Ask me anything about the platform!</p>
+            </div>
+            <div id="chatMessages" class="chat-messages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" placeholder="Type your question..." />
+                <button id="sendChatBtn" type="button">Send</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
-    <script src="abc.js"></script>
+    <script src="/static/abc.js"></script>
 </body>
 </html>

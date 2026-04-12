@@ -5,9 +5,10 @@ from typing import Optional
 import jwt
 from passlib.context import CryptContext
 import os
+from fastapi.security import OAuth2PasswordBearer
 from database import get_db
 from models import User
-from schemas import UserRegister, UserLogin, TokenResponse, UserResponse
+from schemas import UserRegister, UserLogin, TokenResponse, UserResponse, ConfirmationRequest, ConfirmationResponse, ActionWithConfirmation
 
 # Security configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production-12345")
@@ -15,6 +16,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 router = APIRouter()
 
 # Helper functions
@@ -33,6 +35,32 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+# Dependency to get current user from token
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)): # type: ignore
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub") # pyright: ignore[reportAssignmentType]
+        if username is None:
+            raise credentials_exception
+    except jwt.PyJWTError:
+        raise credentials_exception
+    
+    user = db.query(User).filter(User.username == username).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+# Dependency to check if user is admin
+async def require_admin(current_user: User = Depends(get_current_user)):
+    if not bool(current_user.is_admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return current_user
 
 # Routes
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -119,33 +147,9 @@ async def verify_token(token: str):
         )
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user(
-    token: str,
-    db: Session = Depends(get_db)
-):
+async def read_users_me(current_user: User = Depends(get_current_user)):
     """Get current user information"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if username is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token"
-            )
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
-    
-    user = db.query(User).filter(User.username == username).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    return user
+    return current_user
 
 @router.post("/refresh-token", response_model=TokenResponse)
 async def refresh_token(
@@ -179,16 +183,79 @@ async def refresh_token(
         "user": user
     }
 
-# Dependency to get current user
-async def get_current_user(user_id: int, db: Session = Depends(get_db)):
+# Dependency to get user by ID
+async def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
 
-# Dependency to check if user is admin
-async def require_admin(user_id: int, db: Session = Depends(get_db)):
-    user = await get_current_user(user_id, db)
-    if not user.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
-    return user
+# Confirmation system
+import secrets
+from datetime import datetime, timedelta
+
+confirmation_tokens = {}  # In production, use Redis or database
+
+@router.post("/confirm-action", response_model=ConfirmationResponse)
+async def confirm_action(
+    request: ConfirmationRequest,
+    current_user: User = Depends(get_current_user)
+):
+    # Generate confirmation token
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(minutes=5)
+    
+    confirmation_tokens[token] = {
+        "user_id": current_user.id,
+        "action": request.action,
+        "resource_id": request.resource_id,
+        "expires_at": expires_at
+    }
+    
+    message = f"Are you sure you want to {request.action.replace('_', ' ')}?"
+    if request.resource_id:
+        message += f" (ID: {request.resource_id})"
+    
+    return ConfirmationResponse(
+        confirmation_token=token,
+        message=message,
+        expires_at=expires_at
+    )
+
+@router.post("/logout")
+async def logout(
+    request: ActionWithConfirmation,
+    current_user: User = Depends(get_current_user)
+):
+    # Validate confirmation token
+    if request.confirmation_token not in confirmation_tokens:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid confirmation token")
+    
+    token_data = confirmation_tokens[request.confirmation_token]
+    if token_data["user_id"] != current_user.id or token_data["action"] != "logout":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid confirmation token")
+    
+    if datetime.utcnow() > token_data["expires_at"]:
+        del confirmation_tokens[request.confirmation_token]
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Confirmation token expired")
+    
+    # Perform logout (in API, this might just invalidate the token on client side)
+    del confirmation_tokens[request.confirmation_token]
+    return {"message": "Logged out successfully"}
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_admin(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
+    """Allow an admin to delete any user account and all their related data."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    if user.id == admin.id: # type: ignore
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admins cannot delete their own account via this endpoint")
+    
+    db.delete(user)
+    db.commit()

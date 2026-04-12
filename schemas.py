@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -29,8 +29,7 @@ class UserResponse(UserBase):
     created_at: datetime
     is_verified: bool
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserProfileResponse(UserResponse):
     followers_count: int
@@ -50,16 +49,19 @@ class TokenData(BaseModel):
 class PostCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=5000)
     image_url: Optional[str] = None
+    is_nsfw: bool = False
 
 class PostUpdate(BaseModel):
     content: Optional[str] = None
     image_url: Optional[str] = None
+    is_nsfw: Optional[bool] = None
 
 class PostResponse(BaseModel):
     id: int
     author_id: int
     content: str
     image_url: Optional[str]
+    is_nsfw: bool
     created_at: datetime
     updated_at: datetime
     author: UserResponse
@@ -68,7 +70,7 @@ class PostResponse(BaseModel):
     liked_by_current_user: bool = False
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class PostDetailResponse(PostResponse):
     comments: List['CommentResponse'] = []
@@ -90,7 +92,7 @@ class CommentResponse(BaseModel):
     author: UserResponse
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # ==================== Like Schemas ====================
 class LikeResponse(BaseModel):
@@ -99,7 +101,7 @@ class LikeResponse(BaseModel):
     created_at: datetime
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # ==================== Follow Schemas ====================
 class FollowResponse(BaseModel):
@@ -109,7 +111,7 @@ class FollowResponse(BaseModel):
     created_at: datetime
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class FollowUserResponse(BaseModel):
     id: int
@@ -119,7 +121,7 @@ class FollowUserResponse(BaseModel):
     is_following: bool
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # ==================== Notification Schemas ====================
 class NotificationResponse(BaseModel):
@@ -134,7 +136,7 @@ class NotificationResponse(BaseModel):
     sender: UserResponse
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class NotificationMarkRead(BaseModel):
     is_read: bool
@@ -154,7 +156,7 @@ class DirectMessageResponse(BaseModel):
     sender: UserResponse
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class DirectMessageThread(BaseModel):
     user: UserResponse
@@ -176,6 +178,7 @@ class FeedResponse(BaseModel):
 class DraftAnalysisRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=5000)
     category: Optional[str] = None
+    goal: Optional[str] = Field(None, max_length=120)
 
 class ContentAnalysisResponse(BaseModel):
     sentiment: str
@@ -185,6 +188,11 @@ class ContentAnalysisResponse(BaseModel):
     suggested_hashtags: List[str]
     improvement_tip: str
     summary: str
+    clarity_score: float = 0.0
+    estimated_read_time_seconds: int = 0
+    strengths: List[str] = Field(default_factory=list)
+    action_items: List[str] = Field(default_factory=list)
+    rewritten_draft: str = ""
 
 class RecommendationItem(BaseModel):
     post_id: int
@@ -193,10 +201,39 @@ class RecommendationItem(BaseModel):
     content: str
     score: float
     reasons: List[str]
+    category: Optional[str] = None
+    interest_overlap: List[str] = Field(default_factory=list)
 
 class RecommendationsResponse(BaseModel):
     user_id: int
+    persona: str = "curious learner"
+    interest_keywords: List[str] = Field(default_factory=list)
     recommendations: List[RecommendationItem]
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=1000)
+    draft: Optional[str] = Field(None, max_length=5000)
+    signed_in: bool = False
+
+class ChatResponse(BaseModel):
+    response: str
+    intent: str
+    confidence: float
+    suggestions: List[str] = Field(default_factory=list)
+    draft_insights: Optional[ContentAnalysisResponse] = None
+
+# ==================== Confirmation Schemas ====================
+class ConfirmationRequest(BaseModel):
+    action: str = Field(..., description="Action to confirm (e.g., 'delete_post', 'logout', 'unfollow')")
+    resource_id: Optional[int] = Field(None, description="ID of the resource (e.g., post_id, follow_id)")
+
+class ConfirmationResponse(BaseModel):
+    confirmation_token: str
+    message: str
+    expires_at: datetime
+
+class ActionWithConfirmation(BaseModel):
+    confirmation_token: str
 
 # Update forward references
 PostDetailResponse.model_rebuild()

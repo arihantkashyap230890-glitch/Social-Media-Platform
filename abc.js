@@ -32,11 +32,17 @@ const useHashtagsBtn = document.getElementById("useHashtagsBtn");
 const aiSentiment = document.getElementById("aiSentiment");
 const aiEngagement = document.getElementById("aiEngagement");
 const aiCategory = document.getElementById("aiCategory");
+const aiClarity = document.getElementById("aiClarity");
+const aiReadTime = document.getElementById("aiReadTime");
 const aiSummary = document.getElementById("aiSummary");
 const aiTip = document.getElementById("aiTip");
+const aiStrengths = document.getElementById("aiStrengths");
+const aiActions = document.getElementById("aiActions");
+const aiRewrite = document.getElementById("aiRewrite");
 const aiHashtags = document.getElementById("aiHashtags");
 const aiInsightStatus = document.getElementById("aiInsightStatus");
 const recommendedFeed = document.getElementById("recommendedFeed");
+const applyRewriteBtn = document.getElementById("applyRewriteBtn");
 const draftStatus = document.getElementById("draftStatus");
 const imagePreview = document.getElementById("imagePreview");
 const feedSummary = document.getElementById("feedSummary");
@@ -48,6 +54,19 @@ const commentsModal = document.getElementById("commentsModal");
 const notificationsModal = document.getElementById("notificationsModal");
 const settingsModal = document.getElementById("settingsModal");
 const dmModal = document.getElementById("dmModal");
+const chatbotBtn = document.getElementById("chatbotBtn");
+const chatbotModal = document.getElementById("chatbotModal");
+const chatMessages = document.getElementById("chatMessages");
+const chatInput = document.getElementById("chatInput");
+const sendChatBtn = document.getElementById("sendChatBtn");
+const nsfwBtn = document.getElementById("nsfwBtn");
+const ageVerificationModal = document.getElementById("ageVerificationModal");
+const nsfwModal = document.getElementById("nsfwModal");
+const confirm18Plus = document.getElementById("confirm18Plus");
+const under18 = document.getElementById("under18");
+const nsfwFeed = document.getElementById("nsfwFeed");
+const nsfwContent = document.getElementById("nsfwContent");
+const postNsfwBtn = document.getElementById("postNsfwBtn");
 
 const loginTab = document.getElementById("loginTab");
 const signupTab = document.getElementById("signupTab");
@@ -84,6 +103,23 @@ let currentChatUser = null;
 let currentAIAnalysis = null;
 let currentImageData = null;
 let currentFeedFilter = "all";
+
+const API_BASE = "http://localhost:8001";
+const AI_API_BASE = `${API_BASE}/api/ai`;
+const CHATBOT_STARTERS = [
+    "How do recommendations work?",
+    "Help me improve my current draft",
+    "How do I create a post?"
+];
+const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+const MOTION_TARGET_SELECTOR = ".hero-copy, .hero-preview, .feature, .about-container, .composer-card, .ai-panel, .feed-shell, .recommended-card, .post, .empty-state";
+
+let revealObserver = null;
+
+// Neural Background State
+let neuralCanvas, neuralCtx, particles = [];
+let neuralAnimationFrame;
+let mouse = { x: null, y: null, radius: 150 };
 
 persistNormalizedData();
 
@@ -336,6 +372,96 @@ function setHeaderState() {
     mainHeader.classList.toggle("scrolled", window.scrollY > 12);
 }
 
+function ensureRevealObserver() {
+    if (reduceMotionQuery.matches || revealObserver) {
+        return;
+    }
+
+    revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add("is-visible");
+                revealObserver.unobserve(entry.target);
+            }
+        });
+    }, {
+        threshold: 0.16,
+        rootMargin: "0px 0px -8% 0px"
+    });
+}
+
+function queueMotionTarget(element, index = 0) {
+    if (!element) {
+        return;
+    }
+
+    element.style.setProperty("--reveal-delay", `${Math.min(index * 70, 420)}ms`);
+
+    if (reduceMotionQuery.matches) {
+        element.classList.add("is-visible");
+        return;
+    }
+
+    element.classList.add("reveal-on-scroll");
+    ensureRevealObserver();
+    revealObserver.observe(element);
+
+    // Apply floating animation to key landing page visuals
+    if (element.matches(".hero-preview, .recommended-card, .feature-image")) {
+        element.style.animation = `float ${3 + Math.random() * 2}s ease-in-out infinite alternate`;
+    }
+}
+
+function refreshMotionTargets(scope = document) {
+    const targets = scope.querySelectorAll
+        ? scope.querySelectorAll(MOTION_TARGET_SELECTOR)
+        : [];
+
+    targets.forEach((element, index) => {
+        if (element.dataset.motionReady === "true") {
+            return;
+        }
+
+        element.dataset.motionReady = "true";
+        queueMotionTarget(element, index % 7);
+    });
+}
+
+function animateCount(element, nextValue) {
+    if (!element) {
+        return;
+    }
+
+    const safeValue = Number(nextValue) || 0;
+    const previousValue = Number(element.dataset.value || 0);
+
+    if (reduceMotionQuery.matches || previousValue === safeValue) {
+        element.textContent = safeValue.toLocaleString();
+        element.dataset.value = String(safeValue);
+        return;
+    }
+
+    const duration = 650;
+    const startTime = performance.now();
+
+    function step(now) {
+        const progress = Math.min((now - startTime) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const currentValue = Math.round(previousValue + (safeValue - previousValue) * eased);
+        element.textContent = currentValue.toLocaleString();
+
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+            return;
+        }
+
+        element.textContent = safeValue.toLocaleString();
+        element.dataset.value = String(safeValue);
+    }
+
+    window.requestAnimationFrame(step);
+}
+
 function getResolvedTheme(mode) {
     if (mode === "auto") {
         return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -391,6 +517,28 @@ function hideAuthModal() {
     updateCharCount();
     renderImagePreview();
     loadPosts();
+    window.requestAnimationFrame(() => refreshMotionTargets(mainContainer));
+    stopNeuralBackground();
+    window.removeEventListener("scroll", handleLandingParallax);
+}
+
+/**
+ * Handles parallax and depth effects for landing page elements
+ */
+function handleLandingParallax() {
+    if (landingPage.style.display === "none") return;
+    const scrolled = window.scrollY;
+    
+    const heroPreview = landingPage.querySelector(".hero-preview");
+    const heroCopy = landingPage.querySelector(".hero-copy");
+
+    if (heroPreview) {
+        heroPreview.style.transform = `translateY(${scrolled * 0.15}px)`;
+    }
+    if (heroCopy) {
+        heroCopy.style.transform = `translateY(${scrolled * 0.05}px)`;
+        heroCopy.style.opacity = Math.max(0, 1 - scrolled / 600);
+    }
 }
 
 function showLandingPage() {
@@ -401,6 +549,9 @@ function showLandingPage() {
     currentUserSpan.textContent = "";
     updateStats();
     renderRecommendations();
+    window.requestAnimationFrame(() => refreshMotionTargets(landingPage));
+    initNeuralBackground();
+    window.addEventListener("scroll", handleLandingParallax, { passive: true });
 }
 
 function closeModals() {
@@ -410,63 +561,176 @@ function closeModals() {
     settingsModal.style.display = "none";
     dmModal.style.display = "none";
     authModal.style.display = "none";
+    chatbotModal.style.display = "none";
+    ageVerificationModal.style.display = "none";
+    nsfwModal.style.display = "none";
     emojiPicker.style.display = "none";
 
     if (!currentUser) {
         showLandingPage();
+    } else {
+        stopNeuralBackground();
+        window.removeEventListener("scroll", handleLandingParallax);
     }
 }
 
-function login(email, password) {
-    const normalizedEmail = email.trim().toLowerCase();
-    const user = users.find(
-        (item) => item.email.toLowerCase() === normalizedEmail && item.password === password
-    );
+async function login(username, password) {
+    try {
+        const response = await fetch(`${API_BASE}/api/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        });
 
-    if (!user) {
+        if (!response.ok) {
+            return false;
+        }
+
+        const data = await response.json();
+        const token = data.access_token;
+        const user = data.user;
+
+        // Store token
+        localStorage.setItem('access_token', token);
+
+        currentUser = {
+            id: user.id,
+            name: user.full_name || user.username,
+            email: user.email,
+            username: user.username,
+            avatar: user.full_name ? user.full_name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase(),
+            joined: user.created_at,
+            is_admin: user.is_admin || false,
+            followers: [],
+            following: []
+        };
+
+        saveCurrentUser();
+        hideAuthModal();
+        showToast(`Welcome back, ${currentUser.name}.`, "success");
+        return true;
+    } catch (error) {
+        console.error('Login error:', error);
         return false;
     }
-
-    currentUser = normalizeUser(user);
-    saveCurrentUser();
-    hideAuthModal();
-    showToast(`Welcome back, ${currentUser.name}.`, "success");
-    return true;
 }
 
-function signup(name, email, password) {
-    const normalizedEmail = email.trim().toLowerCase();
+async function signup(username, name, email, password) {
+    try {
+        const response = await fetch(`${API_BASE}/api/auth/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                full_name: name,
+                email: email,
+                password: password
+            })
+        });
 
-    if (users.some((user) => user.email.toLowerCase() === normalizedEmail)) {
+        if (!response.ok) {
+            return false;
+        }
+
+        const user = await response.json();
+
+        // Auto-login after signup
+        const loginResponse = await fetch(`${API_BASE}/api/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        });
+
+        if (loginResponse.ok) {
+            const loginData = await loginResponse.json();
+            const token = loginData.access_token;
+            localStorage.setItem('access_token', token);
+
+            currentUser = {
+                id: user.id,
+                name: user.full_name || user.username,
+                email: user.email,
+                username: user.username,
+                avatar: user.full_name ? user.full_name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase(),
+                joined: user.created_at,
+                is_admin: user.is_admin || false,
+                followers: [],
+                following: []
+            };
+
+            saveCurrentUser();
+            hideAuthModal();
+            showToast(`Account created for ${currentUser.name}.`, "success");
+            return true;
+        }
+
+        return false;
+    } catch (error) {
+        console.error('Signup error:', error);
         return false;
     }
-
-    const newUser = normalizeUser({
-        id: Date.now(),
-        name,
-        email: normalizedEmail,
-        password,
-        avatar: name.charAt(0).toUpperCase(),
-        joined: new Date().toISOString(),
-        followers: [],
-        following: []
-    });
-
-    users.push(newUser);
-    saveUsers();
-    currentUser = { ...newUser };
-    saveCurrentUser();
-    hideAuthModal();
-    showToast(`Account created for ${currentUser.name}.`, "success");
-    return true;
 }
 
 function logout() {
     currentUser = null;
+    localStorage.removeItem('access_token');
     saveCurrentUser();
     closeModals();
     showLandingPage();
     showToast("You have been logged out.", "info");
+}
+
+async function deletePost(postId) {
+    try {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showToast("You must be logged in to delete posts.", "error");
+            return;
+        }
+
+        const endpoint = currentUser.is_admin ? `${API_BASE}/api/posts/${postId}` : `${API_BASE}/api/posts/${postId}/user`;
+        
+        const response = await fetch(endpoint, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: currentUser.is_admin ? null : JSON.stringify({ 
+                confirmation_token: "dummy_token", // For now, using dummy token
+                user_id: currentUser.id 
+            })
+        });
+
+        if (response.ok) {
+            // Remove post from local array
+            posts = posts.filter(p => p.id !== postId);
+            comments = comments.filter(c => c.postId !== postId);
+            savePosts();
+            saveComments();
+            updateStats();
+            loadPosts();
+            showToast("Post deleted successfully.", "success");
+        } else {
+            const error = await response.json();
+            showToast(`Failed to delete post: ${error.detail || 'Unknown error'}`, "error");
+        }
+    } catch (error) {
+        console.error('Delete post error:', error);
+        showToast("Failed to delete post.", "error");
+    }
 }
 
 function showToast(message, type = "info") {
@@ -499,9 +763,9 @@ function addNotification(content, type = "info", persist = true) {
 }
 
 function updateStats() {
-    totalUsersEl.textContent = users.length.toLocaleString();
-    totalPostsEl.textContent = posts.length.toLocaleString();
-    totalLikesEl.textContent = posts.reduce((sum, post) => sum + (post.likes || 0), 0).toLocaleString();
+    animateCount(totalUsersEl, users.length);
+    animateCount(totalPostsEl, posts.length);
+    animateCount(totalLikesEl, posts.reduce((sum, post) => sum + (post.likes || 0), 0));
 }
 
 function updateCharCount() {
@@ -546,7 +810,7 @@ function renderImagePreview() {
     `;
 }
 function tokenizeContent(text) {
-    return text
+    return String(text || "")
         .toLowerCase()
         .replace(/[^a-z0-9# ]/g, " ")
         .split(/\s+/)
@@ -586,12 +850,105 @@ function extractKeywords(text, limit = 4) {
         .map(([word]) => word);
 }
 
-function analyzeDraftContent(content, category) {
+function vectorizeKeywords(text, limit = 8) {
+    const counts = {};
+
+    extractKeywords(text, limit * 2).forEach((word) => {
+        counts[word] = (counts[word] || 0) + 1;
+    });
+
+    tokenizeContent(text).forEach((token) => {
+        if (token.length > 3 && !token.startsWith("#")) {
+            counts[token] = (counts[token] || 0) + 1;
+        }
+    });
+
+    return Object.entries(counts)
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, limit)
+        .reduce((vector, [word, count]) => {
+            vector[word] = count;
+            return vector;
+        }, {});
+}
+
+function normalizeVectorMap(vector) {
+    const magnitude = Math.sqrt(Object.values(vector).reduce((sum, value) => sum + value * value, 0));
+    return magnitude || 1;
+}
+
+function computeKeywordSimilarity(profile, vector) {
+    const overlapScore = Object.entries(vector).reduce((sum, [word, weight]) => {
+        return sum + ((profile[word] || 0) * weight);
+    }, 0);
+
+    return overlapScore / (normalizeVectorMap(profile) * normalizeVectorMap(vector));
+}
+
+function detectCategoryFromKeywords(category, keywords) {
+    if (category) {
+        return category;
+    }
+
+    const keywordSet = new Set(keywords);
+    const categoryHints = {
+        tech: ["ai", "analytics", "app", "api", "build", "cloud", "code", "data", "dbms", "ml", "python", "software", "tech"],
+        news: ["announce", "breaking", "headline", "launch", "news", "release", "update"],
+        lifestyle: ["daily", "health", "home", "journey", "life", "mindset", "routine", "travel", "wellness"],
+        general: ["community", "idea", "people", "share", "story", "thought"]
+    };
+
+    return Object.entries(categoryHints)
+        .map(([label, hints]) => ({
+            label,
+            score: hints.filter((hint) => keywordSet.has(hint)).length
+        }))
+        .sort((left, right) => right.score - left.score)[0]?.label || "general";
+}
+
+function buildRewrite(content, category, hasCallToAction) {
+    const cleaned = content.replace(/\s+/g, " ").trim();
+    if (!cleaned) {
+        return "";
+    }
+
+    const leadMap = {
+        tech: "Quick build update:",
+        news: "Quick update:",
+        lifestyle: "Small life note:",
+        general: "Thought for today:"
+    };
+    const hasHook = /^(quick|thought|small|update|today|here)\b/i.test(cleaned);
+    let rewritten = hasHook ? cleaned : `${leadMap[category] || leadMap.general} ${cleaned}`;
+
+    if (!/[.!?]$/.test(rewritten)) {
+        rewritten += ".";
+    }
+
+    if (!hasCallToAction) {
+        const ctaMap = {
+            tech: "What would you improve next?",
+            news: "What stands out to you most?",
+            lifestyle: "Would you try something similar?",
+            general: "What do you think?"
+        };
+        rewritten = `${rewritten} ${ctaMap[category] || ctaMap.general}`;
+    }
+
+    if (rewritten.length > 280) {
+        rewritten = `${rewritten.slice(0, 277).replace(/[ ,.;:]+$/, "")}...`;
+    }
+
+    return rewritten;
+}
+
+function buildLocalDraftAnalysis(content, category) {
     const positiveWords = new Set([
         "amazing",
         "awesome",
         "build",
         "celebrate",
+        "clear",
         "excited",
         "good",
         "great",
@@ -608,14 +965,29 @@ function analyzeDraftContent(content, category) {
         "angry",
         "bad",
         "broken",
+        "confused",
         "fail",
         "frustrated",
         "issue",
         "problem",
         "sad",
+        "slow",
         "stuck",
         "stress",
-        "tired"
+        "tired",
+        "unclear"
+    ]);
+    const ctaWords = new Set([
+        "comment",
+        "drop",
+        "let",
+        "reply",
+        "share",
+        "tell",
+        "thoughts",
+        "vote",
+        "what",
+        "which"
     ]);
 
     const tokens = tokenizeContent(content);
@@ -624,55 +996,214 @@ function analyzeDraftContent(content, category) {
     const negativeHits = tokens.filter((token) => negativeWords.has(token)).length;
     const sentimentScore = (positiveHits - negativeHits) / Math.max(positiveHits + negativeHits, 1);
     const sentiment = sentimentScore > 0.2 ? "Positive" : sentimentScore < -0.2 ? "Negative" : "Neutral";
-    const inferredCategory = category || (
-        keywords.some((word) => ["code", "ai", "ml", "data", "python", "app"].includes(word))
-            ? "tech"
-            : "general"
-    );
+    const inferredCategory = detectCategoryFromKeywords(category, keywords);
+    const sentences = content.trim()
+        ? content.trim().split(/(?<=[.!?])\s+/).filter(Boolean)
+        : [];
+    const averageSentenceLength = tokens.length / Math.max(sentences.length || 1, 1);
+    const uniqueRatio = new Set(tokens).size / Math.max(tokens.length, 1);
+    const hasCallToAction = content.includes("?") || tokens.some((token) => ctaWords.has(token)) || content.toLowerCase().includes("let me know");
     const engagement = Math.max(
-        25,
+        20,
         Math.min(
-            99,
+            100,
             Math.round(
-                48 +
+                34 +
                 positiveHits * 7 -
                 negativeHits * 5 +
                 (content.includes("?") ? 10 : 0) +
-                Math.min(content.length / 10, 24)
+                (hasCallToAction ? 8 : 0) +
+                Math.min(content.length / 14, 18) +
+                (sentences.length >= 1 && sentences.length <= 3 ? 6 : 0)
+            )
+        )
+    );
+    const clarity = Math.max(
+        32,
+        Math.min(
+            98,
+            Math.round(
+                88 -
+                Math.max(averageSentenceLength - 16, 0) * 2.3 -
+                (content.length > 320 ? 10 : 0) -
+                (content.length < 35 ? 7 : 0) +
+                uniqueRatio * 10 +
+                (/[.!?]/.test(content) ? 4 : -4)
             )
         )
     );
     const hashtags = [`#${inferredCategory}`, ...keywords.slice(0, 4).map((word) => `#${word}`)].filter(
         (tag, index, array) => array.indexOf(tag) === index
     );
+    const strengths = [];
+    const actions = [];
 
-    let tip = "Add a short question or call to action at the end to encourage replies.";
-    if (negativeHits > positiveHits) {
-        tip = "Try softening the tone and adding a practical takeaway to make the post feel more constructive.";
-    } else if (content.length > 160) {
-        tip = "This draft has good depth. Break one sentence into two if you want it to scan faster on mobile.";
+    if (sentimentScore > 0.15) {
+        strengths.push("The tone feels upbeat and approachable.");
     }
+    if (clarity >= 78) {
+        strengths.push("The message is clear enough to scan quickly.");
+    }
+    if (keywords.length) {
+        strengths.push(`Your main focus comes through in ${keywords.slice(0, 3).join(", ")}.`);
+    }
+    if (hasCallToAction) {
+        strengths.push("You already have a conversation-friendly hook.");
+    }
+    if (content.length >= 80) {
+        strengths.push("There is enough detail here to feel useful.");
+    }
+
+    if (content.length < 80) {
+        actions.push("Add one concrete detail, example, or result.");
+    }
+    if (clarity < 72) {
+        actions.push("Shorten one sentence so the point lands faster.");
+    }
+    if (negativeHits > positiveHits) {
+        actions.push("Shift toward a constructive takeaway instead of staying on the problem.");
+    }
+    if (!hasCallToAction) {
+        actions.push("End with a question to invite replies.");
+    }
+    if (content.length > 220) {
+        actions.push("Trim a few words so the strongest point appears earlier.");
+    }
+    if (!strengths.length) {
+        strengths.push("The draft already has a clear starting point to build on.");
+    }
+    if (!actions.length) {
+        actions.push("You can publish this as is or add one short call to action.");
+    }
+
+    const tip = actions[0];
+    const readTime = Math.max(15, Math.round((tokens.length / 190) * 60));
+    const rewrite = buildRewrite(content, inferredCategory, hasCallToAction);
 
     return {
         sentiment,
+        sentimentScore,
         engagement,
         category: inferredCategory,
         hashtags,
         summary: keywords.length
-            ? `Your draft focuses on ${keywords.slice(0, 3).join(", ")}.`
+            ? `This draft centers on ${keywords.slice(0, 3).join(", ")} and should work best in ${inferredCategory}.`
             : "Your draft is ready for AI-assisted improvements.",
-        tip
+        tip,
+        clarity,
+        readTime,
+        strengths: strengths.slice(0, 4),
+        actions: actions.slice(0, 4),
+        rewrite,
+        source: "local"
     };
+}
+
+function normalizeAnalysisResponse(data) {
+    const sentiment = String(data?.sentiment || "neutral");
+    const recommendedCategory = String(data?.recommended_category || data?.category || "general");
+    const suggestedHashtags = Array.isArray(data?.suggested_hashtags)
+        ? data.suggested_hashtags
+        : Array.isArray(data?.hashtags)
+            ? data.hashtags
+            : [];
+
+    return {
+        sentiment: sentiment.charAt(0).toUpperCase() + sentiment.slice(1),
+        sentimentScore: Number(data?.sentiment_score ?? data?.sentimentScore ?? 0),
+        engagement: Math.round(Number(data?.engagement_score ?? data?.engagement ?? 0)),
+        category: recommendedCategory,
+        hashtags: suggestedHashtags,
+        summary: String(data?.summary || "Your draft is ready for AI-assisted improvements."),
+        tip: String(data?.improvement_tip || data?.tip || "Add a short call to action at the end."),
+        clarity: Math.round(Number(data?.clarity_score ?? data?.clarity ?? 0)),
+        readTime: Math.max(0, Math.round(Number(data?.estimated_read_time_seconds ?? data?.readTime ?? 0))),
+        strengths: Array.isArray(data?.strengths) ? data.strengths : [],
+        actions: Array.isArray(data?.action_items)
+            ? data.action_items
+            : Array.isArray(data?.actions)
+                ? data.actions
+                : [],
+        rewrite: String(data?.rewritten_draft || data?.rewrite || ""),
+        source: data?.source || "server"
+    };
+}
+
+function renderAIList(container, items, fallback) {
+    container.innerHTML = "";
+
+    (items.length ? items : [fallback]).forEach((item) => {
+        const listItem = document.createElement("li");
+        listItem.textContent = item;
+        container.appendChild(listItem);
+    });
+}
+
+function resetAIInsights() {
+    currentAIAnalysis = null;
+    aiSentiment.textContent = "Waiting for analysis";
+    aiEngagement.textContent = "0";
+    aiCategory.textContent = "general";
+    aiClarity.textContent = "0";
+    aiReadTime.textContent = "0s";
+    aiSummary.textContent = "Write a draft and run analysis to see AI-generated insights here.";
+    aiTip.textContent = "Tips will appear after analysis.";
+    aiRewrite.textContent = "Analyze a draft to generate a stronger rewrite.";
+    aiHashtags.innerHTML = "";
+    renderAIList(aiStrengths, [], "Your strongest points will show up here.");
+    renderAIList(aiActions, [], "Actionable coaching will appear after analysis.");
+    applyRewriteBtn.disabled = true;
+}
+
+async function requestDraftAnalysis(content, category) {
+    const fallback = buildLocalDraftAnalysis(content, category);
+
+    try {
+        const response = await fetch(`${AI_API_BASE}/analyze-draft`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                content,
+                category: category || null,
+                goal: "engagement"
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Draft analysis failed with ${response.status}`);
+        }
+
+        return {
+            ...normalizeAnalysisResponse(await response.json()),
+            source: "server"
+        };
+    } catch (error) {
+        console.error("Draft analysis fallback:", error);
+        return fallback;
+    }
 }
 
 function renderAIInsights(analysis) {
     currentAIAnalysis = analysis;
-    aiSentiment.textContent = analysis.sentiment;
-    aiEngagement.textContent = `${analysis.engagement}/100`;
-    aiCategory.textContent = analysis.category;
-    aiSummary.textContent = analysis.summary;
-    aiTip.textContent = analysis.tip;
+    
+    // Advanced Visualization Injection
+    aiSentiment.innerHTML = `<span class="sentiment-badge ${analysis.sentiment.toLowerCase()}">${analysis.sentiment}</span>`;
+    aiEngagement.innerHTML = createGaugeSVG(analysis.engagement, "engagement-gauge");
+    aiClarity.innerHTML = createGaugeSVG(analysis.clarity, "clarity-gauge");
+    
+    aiCategory.textContent = formatCategoryLabel(analysis.category);
+    aiReadTime.textContent = `${analysis.readTime}s`;
+
+    renderTypewriterEffect(aiSummary, analysis.summary);
+    renderTypewriterEffect(aiTip, analysis.tip);
+    aiRewrite.textContent = analysis.rewrite || "Awaiting neural processing...";
+    
     aiHashtags.innerHTML = "";
+    renderAIList(aiStrengths, analysis.strengths || [], "Your strongest points will show up here.");
+    renderAIList(aiActions, analysis.actions || [], "Actionable coaching will appear after analysis.");
+    applyRewriteBtn.disabled = !analysis.rewrite;
 
     analysis.hashtags.forEach((tag) => {
         const chip = document.createElement("span");
@@ -682,31 +1213,388 @@ function renderAIInsights(analysis) {
     });
 }
 
-function buildInterestProfile() {
-    if (!currentUser) {
-        return [];
+function renderTypewriterEffect(element, text) {
+    element.textContent = "";
+    let i = 0;
+    const speed = 15;
+    function type() {
+        if (i < text.length) {
+            element.textContent += text.charAt(i);
+            i++;
+            setTimeout(type, speed);
+        }
+    }
+    type();
+}
+
+// Chatbot functions
+function showChatbotModal() {
+    chatbotModal.style.display = "flex";
+    chatMessages.innerHTML = "";
+    addChatMessage(
+        "Hello! I can help with posting, AI Studio, recommendations, inbox, and improving the draft in your composer.",
+        false,
+        { suggestions: CHATBOT_STARTERS }
+    );
+    chatInput.focus();
+}
+
+function closeChatbotModal() {
+    chatbotModal.style.display = "none";
+    chatInput.value = "";
+}
+
+function addChatMessage(message, isUser = false, options = {}) {
+    const messageDiv = document.createElement("div");
+    messageDiv.className = `chat-message ${isUser ? "user" : "bot"}`;
+    messageDiv.textContent = message;
+    chatMessages.appendChild(messageDiv);
+
+    if (!isUser && Array.isArray(options.suggestions) && options.suggestions.length) {
+        const suggestionsRow = document.createElement("div");
+        suggestionsRow.className = "chat-suggestions";
+
+        options.suggestions.slice(0, 3).forEach((suggestion) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "chat-suggestion";
+            button.textContent = suggestion;
+            button.addEventListener("click", () => {
+                chatInput.value = suggestion;
+                sendChatMessage();
+            });
+            suggestionsRow.appendChild(button);
+        });
+
+        chatMessages.appendChild(suggestionsRow);
     }
 
-    const signals = [];
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function getChatbotResponse(question) {
+    const q = question.toLowerCase().trim();
+    const activeDraft = postContent.value.trim();
+
+    if (activeDraft && /(draft|rewrite|improve|caption|post help)/.test(q)) {
+        const analysis = buildLocalDraftAnalysis(activeDraft, categorySelect.value);
+        return {
+            response: `Your draft looks ${analysis.sentiment.toLowerCase()} with clarity at ${analysis.clarity}/100. ${analysis.tip}`,
+            suggestions: [
+                "Use the rewrite from AI Studio",
+                "How do recommendations work?",
+                "How do I create a post?"
+            ],
+            draftInsights: analysis,
+            source: "local"
+        };
+    }
+
+    if ((q.includes("draft") || q.includes("rewrite") || q.includes("improve")) && !activeDraft) {
+        return {
+            response: "Write something in the composer first, then ask me to improve your draft and I will coach it.",
+            suggestions: CHATBOT_STARTERS,
+            source: "local"
+        };
+    }
+
+    if (q.includes("what") && q.includes("connect hub")) {
+        return {
+            response: "Connect Hub is a social platform focused on thoughtful sharing, clean discovery, and built-in AI help for drafting, rewrites, hashtags, and recommendations.",
+            suggestions: CHATBOT_STARTERS,
+            source: "local"
+        };
+    }
+
+    if (q.includes("how") && (q.includes("sign up") || q.includes("login") || q.includes("account"))) {
+        return {
+            response: "Click Join the Community to create an account, then sign in with your email and password to unlock posting, following, and personalized features.",
+            suggestions: ["How do I create a post?", "What can AI Studio do?", "How do recommendations work?"],
+            source: "local"
+        };
+    }
+
+    if (q.includes("ai") || q.includes("studio")) {
+        return {
+            response: "AI Studio analyzes tone, clarity, engagement potential, hashtags, and a suggested rewrite so you can polish a post before publishing.",
+            suggestions: ["Help me improve my current draft", "How do recommendations work?", "How do I create a post?"],
+            source: "local"
+        };
+    }
+
+    if (q.includes("post") || q.includes("create") || q.includes("publish")) {
+        return {
+            response: "Use the composer on the left to write a post, choose a category, optionally add an image, run Analyze Draft if you want AI guidance, and then publish.",
+            suggestions: ["What can AI Studio do?", "How do recommendations work?", "Help me improve my current draft"],
+            source: "local"
+        };
+    }
+
+    if (q.includes("recommend") || q.includes("personalized") || q.includes("for you")) {
+        return {
+            response: "Recommendations learn from what you write, like, and who you follow, then combine topic match, social signals, and freshness to surface stronger posts.",
+            suggestions: ["What can AI Studio do?", "How do I create a post?", "Help me improve my current draft"],
+            source: "local"
+        };
+    }
+
+    if (q.includes("feed") || q.includes("discover")) {
+        return {
+            response: "The feed shows posts from all users. Use tabs to switch between All Posts, Following, and Trending, then sort or search to narrow what you see.",
+            suggestions: ["How do recommendations work?", "What can AI Studio do?", "How do I create a post?"],
+            source: "local"
+        };
+    }
+
+    if (q.includes("message") || q.includes("dm") || q.includes("inbox")) {
+        return {
+            response: "Open Inbox to continue conversations, view recent threads, and message people in your network directly.",
+            suggestions: ["How do recommendations work?", "How do I create a post?", "What can AI Studio do?"],
+            source: "local"
+        };
+    }
+
+    if (q.includes("follow") || q.includes("unfollow")) {
+        return {
+            response: "Open a profile or use the follow button on a post to follow someone. Your recommendation feed learns from those network connections too.",
+            suggestions: ["How do recommendations work?", "How do I create a post?", "What can AI Studio do?"],
+            source: "local"
+        };
+    }
+
+    if (q.includes("delete") || q.includes("remove")) {
+        return {
+            response: "You can delete your own posts from the post menu, and Connect Hub keeps a confirmation step in front of risky actions.",
+            suggestions: ["How do I create a post?", "What can AI Studio do?", "How do recommendations work?"],
+            source: "local"
+        };
+    }
+
+    if (q.includes("creator") || q.includes("arihant")) {
+        return {
+            response: "Connect Hub was created by Arihant Kashyap with a focus on calmer, more meaningful social experiences.",
+            suggestions: ["What can AI Studio do?", "How do recommendations work?", "How do I create a post?"],
+            source: "local"
+        };
+    }
+
+    return {
+        response: "I can help with posting, AI Studio, recommendations, inbox, or improving the draft in your composer.",
+        suggestions: CHATBOT_STARTERS,
+        source: "local"
+    };
+}
+
+function normalizeChatResponse(data) {
+    return {
+        response: String(data?.response || "I can help with posting, AI Studio, recommendations, inbox, or improving the draft in your composer."),
+        suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
+        draftInsights: data?.draft_insights
+            ? normalizeAnalysisResponse(data.draft_insights)
+            : data?.draftInsights
+                ? normalizeAnalysisResponse(data.draftInsights)
+                : null,
+        source: data?.source || "server"
+    };
+}
+
+async function requestChatbotResponse(message) {
+    const fallback = getChatbotResponse(message);
+
+    try {
+        const response = await fetch(`${AI_API_BASE}/chat`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                message,
+                draft: postContent.value.trim() || null,
+                signed_in: Boolean(currentUser)
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Chatbot request failed with ${response.status}`);
+        }
+
+        return {
+            ...normalizeChatResponse(await response.json()),
+            source: "server"
+        };
+    } catch (error) {
+        console.error("Chatbot fallback:", error);
+        return fallback;
+    }
+}
+
+async function sendChatMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+
+    addChatMessage(message, true);
+    chatInput.value = "";
+
+    const typingDiv = document.createElement("div");
+    typingDiv.className = "chat-message bot";
+    typingDiv.textContent = "Thinking...";
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    try {
+        const data = await requestChatbotResponse(message);
+
+        if (typingDiv.parentNode) {
+            typingDiv.parentNode.removeChild(typingDiv);
+        }
+
+        addChatMessage(data.response, false, { suggestions: data.suggestions });
+
+        if (data.draftInsights) {
+            renderAIInsights(data.draftInsights);
+            aiInsightStatus.textContent = data.source === "server"
+                ? "Draft coached by the assistant."
+                : "Draft coached using local fallback.";
+        }
+    } catch (error) {
+        if (typingDiv.parentNode) {
+            typingDiv.parentNode.removeChild(typingDiv);
+        }
+        addChatMessage("Sorry, I ran into a problem while answering that.", false, { suggestions: CHATBOT_STARTERS });
+        console.error("Chatbot error:", error);
+    }
+}
+
+// NSFW functions
+let isAgeVerified = localStorage.getItem("ageVerified") === "true";
+
+function showAgeVerification() {
+    ageVerificationModal.style.display = "flex";
+}
+
+function showNsfwModal() {
+    if (!isAgeVerified) {
+        showAgeVerification();
+        return;
+    }
+    nsfwModal.style.display = "flex";
+    loadNsfwPosts();
+}
+
+function loadNsfwPosts() {
+    fetch(`${API_BASE}/api/nsfw/`)
+    .then(response => response.json())
+    .then(posts => {
+        nsfwFeed.innerHTML = "";
+        posts.forEach(post => {
+            const postElement = createPostElement(post, true);
+            nsfwFeed.appendChild(postElement);
+        });
+    })
+    .catch(error => {
+        console.error("Error loading NSFW posts:", error);
+        showToast("Failed to load NSFW content.", "error");
+    });
+}
+
+function postNsfwContent() {
+    const content = nsfwContent.value.trim();
+    if (!content) {
+        showToast("Please enter some content.", "info");
+        return;
+    }
+
+    const postData = {
+        content: content,
+        is_nsfw: true
+    };
+
+    fetch(`${API_BASE}/api/nsfw/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("access_token")}`
+        },
+        body: JSON.stringify(postData)
+    })
+    .then(response => response.json())
+    .then(post => {
+        nsfwContent.value = "";
+        loadNsfwPosts();
+        showToast("NSFW post created!", "success");
+    })
+    .catch(error => {
+        console.error("Error posting NSFW content:", "error");
+        showToast("Failed to post NSFW content.", "error");
+    });
+}
+
+function revealNsfwButton() {
+    // Hidden way to access NSFW - triple click on the brand name
+    let clicks = 0;
+    const brand = document.querySelector(".brand-line h1");
+    brand.addEventListener("click", () => {
+        clicks++;
+        if (clicks === 3) {
+            nsfwBtn.style.display = "inline-block";
+            showToast("NSFW space unlocked! 🔥", "info");
+            clicks = 0;
+        }
+        setTimeout(() => clicks = 0, 1000);
+    });
+}
+
+function mergeInterestSignal(profile, text, weight = 1, limit = 8) {
+    extractKeywords(text, limit).forEach((keyword) => {
+        profile[keyword] = (profile[keyword] || 0) + weight;
+    });
+}
+
+function buildInterestProfile() {
+    if (!currentUser) {
+        return {};
+    }
+
+    const profile = {};
 
     posts.forEach((post) => {
-        if (
-            post.userId === currentUser.id ||
-            currentUser.following.includes(post.userId) ||
-            post.likedBy.includes(currentUser.id)
-        ) {
-            signals.push(post.content);
+        if (post.userId === currentUser.id) {
+            mergeInterestSignal(profile, post.content, 5);
             if (post.category) {
-                signals.push(post.category);
+                profile[post.category] = (profile[post.category] || 0) + 6;
+            }
+        }
+
+        if (post.likedBy.includes(currentUser.id)) {
+            mergeInterestSignal(profile, post.content, 3);
+            if (post.category) {
+                profile[post.category] = (profile[post.category] || 0) + 4;
+            }
+        }
+
+        if (currentUser.following.includes(post.userId)) {
+            mergeInterestSignal(profile, post.content, 2);
+            if (post.category) {
+                profile[post.category] = (profile[post.category] || 0) + 3;
             }
         }
     });
 
-    if (!signals.length) {
-        signals.push(currentUser.name);
+    if (!Object.keys(profile).length) {
+        mergeInterestSignal(profile, currentUser.name, 2, 4);
     }
 
-    return extractKeywords(signals.join(" "), 8);
+    return profile;
+}
+
+function computeFreshnessBoost(createdAt) {
+    const created = new Date(createdAt);
+    if (Number.isNaN(created.getTime())) {
+        return 0;
+    }
+
+    const ageHours = Math.max(0, (Date.now() - created.getTime()) / 3600000);
+    return Math.max(0, Math.round(10 - Math.min(ageHours / 6, 10)));
 }
 
 function getRecommendedPosts() {
@@ -714,33 +1602,54 @@ function getRecommendedPosts() {
         return [];
     }
 
-    const interests = buildInterestProfile();
+    const profile = buildInterestProfile();
 
     return posts
         .filter((post) => post.userId !== currentUser.id)
         .map((post) => {
-            const keywords = extractKeywords(post.content, 6);
-            const overlap = keywords.filter((keyword) => interests.includes(keyword));
-            const followingBoost = currentUser.following.includes(post.userId) ? 18 : 0;
-            const popularityBoost = (post.likes || 0) * 3 + (post.comments || 0) * 2;
-            const categoryBoost = post.category && interests.includes(post.category) ? 10 : 0;
-            const score = overlap.length * 15 + followingBoost + popularityBoost + categoryBoost;
+            const postVector = vectorizeKeywords(post.content, 8);
+            const overlap = Object.keys(postVector)
+                .filter((keyword) => profile[keyword])
+                .sort((left, right) => (profile[right] || 0) - (profile[left] || 0));
+            const similarity = computeKeywordSimilarity(profile, postVector);
+            const followingBoost = currentUser.following.includes(post.userId) ? 14 : 0;
+            const popularityBoost = Math.min(24, (post.likes || 0) * 2 + (post.comments || 0) * 1.5);
+            const freshnessBoost = computeFreshnessBoost(post.createdAt);
+            const categoryBoost = post.category && profile[post.category] ? Math.min(profile[post.category], 10) : 0;
+            const explorationBoost = similarity < 0.08 && popularityBoost >= 6 ? 4 : 0;
+            const score = similarity * 70 + overlap.length * 5 + followingBoost + popularityBoost + freshnessBoost + categoryBoost + explorationBoost;
+            const match = Math.max(
+                52,
+                Math.min(
+                    99,
+                    Math.round(similarity * 100 + overlap.length * 6 + followingBoost + categoryBoost + (freshnessBoost / 2))
+                )
+            );
             const reasons = [];
 
             if (overlap.length) {
-                reasons.push(`Matches your interests: ${overlap.slice(0, 3).join(", ")}`);
+                reasons.push(`Strong topic match: ${overlap.slice(0, 3).join(", ")}`);
             }
             if (followingBoost) {
                 reasons.push("From someone in your network");
             }
-            if (popularityBoost) {
-                reasons.push("Strong community engagement");
+            if (popularityBoost >= 6) {
+                reasons.push("Already getting strong community engagement");
+            }
+            if (freshnessBoost >= 6) {
+                reasons.push("Fresh post with current momentum");
             }
             if (!reasons.length) {
-                reasons.push("Fresh post worth discovering");
+                reasons.push("Useful exploration pick outside your usual lane");
             }
 
-            return { ...post, score, reasons };
+            return {
+                ...post,
+                score: Math.round(score),
+                match,
+                reasons: reasons.slice(0, 3),
+                overlap: overlap.slice(0, 4)
+            };
         })
         .sort((left, right) => right.score - left.score)
         .slice(0, 4);
@@ -766,6 +1675,7 @@ function renderRecommendations() {
                 "Interact with the feed to help the recommendation engine learn what you care about."
             )
         );
+        refreshMotionTargets(recommendedFeed);
         return;
     }
 
@@ -773,17 +1683,28 @@ function renderRecommendations() {
         const card = document.createElement("div");
         card.className = "recommended-card";
         card.innerHTML = `
+            ${post.image ? `
+                <div class="recommended-image">
+                    <img src="${post.image}" alt="Content preview" loading="lazy" />
+                </div>
+            ` : ""}
             <div class="recommended-meta">
                 <strong>${escapeHtml(post.username)}</strong>
-                <span>Score ${post.score}</span>
+                <span>Match ${post.match}%</span>
             </div>
             <p>${escapeHtml(post.content)}</p>
+            <div class="recommended-reasons">
+                <span class="recommended-reason">${escapeHtml(formatCategoryLabel(post.category || "general"))}</span>
+                ${post.overlap.map((keyword) => `<span class="recommended-reason">${escapeHtml(keyword)}</span>`).join("")}
+            </div>
             <div class="recommended-reasons">
                 ${post.reasons.map((reason) => `<span class="recommended-reason">${escapeHtml(reason)}</span>`).join("")}
             </div>
         `;
         recommendedFeed.appendChild(card);
     });
+
+    refreshMotionTargets(recommendedFeed);
 }
 
 function createEmptyState(title, description) {
@@ -825,7 +1746,7 @@ function createPostElement(post) {
                 <button class="comment-btn" data-id="${post.id}">Comment <span class="comment-count">${post.comments || 0}</span></button>
                 <button class="share-btn" data-id="${post.id}">Share</button>
             </div>
-            ${currentUser && post.userId === currentUser.id ? `<button class="delete-btn" data-id="${post.id}">Delete</button>` : ""}
+            ${currentUser && (post.userId === currentUser.id || currentUser.is_admin) ? `<button class="delete-btn" data-id="${post.id}">Delete</button>` : ""}
         </div>
     `;
     return postDiv;
@@ -870,12 +1791,26 @@ function sortPostsList(postList) {
     return sorted;
 }
 
+function showFeedSkeleton() {
+    feed.innerHTML = Array(3).fill(0).map(() => `
+        <div class="skeleton-post">
+            <div class="skeleton-avatar"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-content"></div>
+        </div>
+    `).join('');
+}
+
 function loadPosts() {
     if (!currentUser) {
         feed.innerHTML = "";
         renderRecommendations();
         return;
     }
+
+    // Simulate high-speed data parsing with skeleton
+    if (posts.length > 10) showFeedSkeleton();
 
     let visiblePosts = [...posts];
 
@@ -896,25 +1831,28 @@ function loadPosts() {
     }
 
     visiblePosts = sortPostsList(visiblePosts);
-    feed.innerHTML = "";
+    
+    setTimeout(() => {
+        feed.innerHTML = "";
+        if (!visiblePosts.length) {
+            const title = query ? "No posts match your search" : "The feed is quiet right now";
+            const description = query
+                ? "Try a broader keyword, clear the search, or switch feed tabs."
+                : currentFeedFilter === "following"
+                    ? "Follow people to make this view more useful."
+                    : currentFeedFilter === "trending"
+                        ? "Posts with likes or comments will show up here."
+                        : "Publish the first post to kick things off.";
+            feed.appendChild(createEmptyState(title, description));
+        } else {
+            visiblePosts.forEach((post) => {
+                feed.appendChild(createPostElement(post));
+            });
+        }
+        updateFeedSummary(visiblePosts.length);
+        refreshMotionTargets(feed);
+    }, posts.length > 10 ? 300 : 0);
 
-    if (!visiblePosts.length) {
-        const title = query ? "No posts match your search" : "The feed is quiet right now";
-        const description = query
-            ? "Try a broader keyword, clear the search, or switch feed tabs."
-            : currentFeedFilter === "following"
-                ? "Follow people to make this view more useful."
-                : currentFeedFilter === "trending"
-                    ? "Posts with likes or comments will show up here."
-                    : "Publish the first post to kick things off.";
-        feed.appendChild(createEmptyState(title, description));
-    } else {
-        visiblePosts.forEach((post) => {
-            feed.appendChild(createPostElement(post));
-        });
-    }
-
-    updateFeedSummary(visiblePosts.length);
     updateSearchSummary(query, visiblePosts.length);
     renderRecommendations();
 }
@@ -941,8 +1879,8 @@ function addPost(content) {
     posts.unshift(post);
     savePosts();
     currentImageData = null;
-    currentAIAnalysis = null;
     renderImagePreview();
+    resetAIInsights();
     loadPosts();
     updateStats();
     addNotification("Your post has been published.", "success");
@@ -1385,6 +2323,18 @@ function sortPosts() {
     loadPosts();
 }
 
+let analysisTimeout;
+postContent.addEventListener("input", () => {
+    updateCharCount();
+    // Advanced "Live Insight" Logic: Auto-trigger light analysis after pause
+    clearTimeout(analysisTimeout);
+    analysisTimeout = setTimeout(() => {
+        if (postContent.value.length > 20) {
+            aiInsightStatus.textContent = "AI is evaluating your draft structure...";
+        }
+    }, 2000);
+});
+
 function toggleEmojiPicker() {
     const rect = emojiBtn.getBoundingClientRect();
     emojiPicker.style.left = `${Math.max(12, rect.left)}px`;
@@ -1432,13 +2382,7 @@ feed.addEventListener("click", (event) => {
 
         if (actionButton.classList.contains("delete-btn") && post) {
             if (window.confirm("Are you sure you want to delete this post?")) {
-                posts.splice(postIndex, 1);
-                comments = comments.filter((comment) => comment.postId !== postId);
-                savePosts();
-                saveComments();
-                updateStats();
-                loadPosts();
-                showToast("Post deleted successfully.", "success");
+                deletePost(post.id);
             }
             return;
         }
@@ -1449,7 +2393,7 @@ feed.addEventListener("click", (event) => {
     }
 
     if (userTrigger) {
-        showProfileModal(Number(userTrigger.dataset.userId));
+         showProfileModal(Number(userTrigger.dataset.userId));
     }
 
     if (hashtagTrigger) {
@@ -1478,36 +2422,37 @@ postForm.addEventListener("submit", (event) => {
 loginTab.addEventListener("click", () => switchTab(true));
 signupTab.addEventListener("click", () => switchTab(false));
 
-loginBtn.addEventListener("click", () => {
-    const email = document.getElementById("loginEmail").value.trim();
+loginBtn.addEventListener("click", async () => {
+    const username = document.getElementById("loginUsername").value.trim();
     const password = document.getElementById("loginPassword").value;
 
-    if (login(email, password)) {
+    if (await login(username, password)) {
         loginError.textContent = "";
     } else {
-        loginError.textContent = "Invalid email or password.";
+        loginError.textContent = "Invalid username or password.";
     }
 });
 
-signupBtn.addEventListener("click", () => {
+signupBtn.addEventListener("click", async () => {
+    const username = document.getElementById("signupUsername").value.trim();
     const name = document.getElementById("signupName").value.trim();
     const email = document.getElementById("signupEmail").value.trim();
     const password = document.getElementById("signupPassword").value;
 
-    if (!name || !email || !password) {
+    if (!username || !name || !email || !password) {
         signupError.textContent = "All fields are required.";
         return;
     }
 
-    if (password.length < 6) {
-        signupError.textContent = "Password must be at least 6 characters.";
+    if (password.length < 8) {
+        signupError.textContent = "Password must be at least 8 characters.";
         return;
     }
 
-    if (signup(name, email, password)) {
+    if (await signup(username, name, email, password)) {
         signupError.textContent = "";
     } else {
-        signupError.textContent = "Email already exists.";
+        signupError.textContent = "Username or email already exists.";
     }
 });
 
@@ -1557,7 +2502,7 @@ followingTab.addEventListener("click", () => filterPosts("following"));
 trendingTab.addEventListener("click", () => filterPosts("trending"));
 sortSelect.addEventListener("change", sortPosts);
 
-analyzeDraftBtn.addEventListener("click", () => {
+analyzeDraftBtn.addEventListener("click", async () => {
     const content = postContent.value.trim();
 
     if (!content) {
@@ -1565,10 +2510,15 @@ analyzeDraftBtn.addEventListener("click", () => {
         return;
     }
 
-    const analysis = analyzeDraftContent(content, categorySelect.value);
+    const analysis = await requestDraftAnalysis(content, categorySelect.value);
     renderAIInsights(analysis);
-    aiInsightStatus.textContent = "Draft analyzed successfully.";
-    showToast("Draft analysis complete.", "success");
+    aiInsightStatus.textContent = analysis.source === "server"
+        ? "Draft analyzed successfully."
+        : "Draft analyzed using local fallback.";
+    showToast(
+        analysis.source === "server" ? "Draft analysis complete." : "Draft analysis complete with local fallback.",
+        "success"
+    );
 });
 
 useHashtagsBtn.addEventListener("click", () => {
@@ -1582,6 +2532,17 @@ useHashtagsBtn.addEventListener("click", () => {
     postContent.value = `${existingContent} ${hashtagBlock}`.trim();
     updateCharCount();
     showToast("Suggested hashtags added to your draft.", "success");
+});
+
+applyRewriteBtn.addEventListener("click", () => {
+    if (!currentAIAnalysis || !currentAIAnalysis.rewrite) {
+        showToast("Analyze a draft first to generate a rewrite.", "info");
+        return;
+    }
+
+    postContent.value = currentAIAnalysis.rewrite;
+    updateCharCount();
+    showToast("AI rewrite applied to your draft.", "success");
 });
 
 document.querySelectorAll(".close").forEach((closeBtn) => {
@@ -1655,16 +2616,186 @@ learnMoreBtn.addEventListener("click", () => {
     document.querySelector(".about-creator-section").scrollIntoView({ behavior: "smooth" });
 });
 
+// Chatbot event listeners
+chatbotBtn.addEventListener("click", showChatbotModal);
+sendChatBtn.addEventListener("click", sendChatMessage);
+chatInput.addEventListener("keypress", (event) => {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        sendChatMessage();
+    }
+});
+
+// NSFW event listeners
+nsfwBtn.addEventListener("click", showNsfwModal);
+confirm18Plus.addEventListener("click", () => {
+    isAgeVerified = true;
+    localStorage.setItem("ageVerified", "true");
+    ageVerificationModal.style.display = "none";
+    showNsfwModal();
+});
+under18.addEventListener("click", () => {
+    ageVerificationModal.style.display = "none";
+    showToast("You must be 18+ to access NSFW content.", "error");
+});
+postNsfwBtn.addEventListener("click", postNsfwContent);
+revealNsfwButton();
+
 loadTheme();
 updateCharCount();
 renderImagePreview();
+resetAIInsights();
 updateDMBadge();
 updateNotificationsBadge();
 updateStats();
 setHeaderState();
+startSystemPulse();
+refreshMotionTargets(document);
 
 if (currentUser) {
     hideAuthModal();
 } else {
     showLandingPage();
+}
+
+/**
+ * Advanced SVG Gauge Generator for AI Metrics
+ */
+function createGaugeSVG(value, colorClass = "primary") {
+    const percent = Math.min(100, Math.max(0, value));
+    return `
+        <div class="ai-gauge-wrapper">
+            <svg viewBox="0 0 36 36" class="circular-chart ${colorClass}">
+                <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path class="circle" stroke-dasharray="${percent}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <text x="18" y="20.35" class="percentage">${percent}%</text>
+            </svg>
+        </div>
+    `;
+}
+
+/**
+ * Simulated "System Pulse" to make the UI feel alive
+ */
+function startSystemPulse() {
+    const events = ["Node optimized", "Vector sync complete", "Neutralizing noise", "Buffering feed..."];
+    setInterval(() => {
+        const event = events[Math.floor(Math.random() * events.length)];
+        if (aiInsightStatus) aiInsightStatus.textContent = `[PULSE] ${event} | ${new Date().toLocaleTimeString()}`;
+    }, 8000);
+}
+
+/**
+ * Neural Connectivity Background Engine with Bloom
+ */
+function initNeuralBackground() {
+    if (!landingPage || neuralAnimationFrame) return;
+
+    neuralCanvas = document.getElementById('neuralCanvas');
+    if (!neuralCanvas) {
+        neuralCanvas = document.createElement('canvas');
+        neuralCanvas.id = 'neuralCanvas';
+        neuralCanvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:0.6;';
+        landingPage.prepend(neuralCanvas);
+    }
+
+    neuralCtx = neuralCanvas.getContext('2d');
+    resizeNeuralCanvas();
+    
+    particles = [];
+    const numberOfParticles = (window.innerWidth * window.innerHeight) / 9000;
+    for (let i = 0; i < numberOfParticles; i++) {
+        particles.push(new Particle());
+    }
+
+    window.addEventListener('resize', resizeNeuralCanvas);
+    window.addEventListener('mousemove', handleNeuralMouse);
+    animateNeuralBackground();
+}
+
+function stopNeuralBackground() {
+    cancelAnimationFrame(neuralAnimationFrame);
+    neuralAnimationFrame = null;
+    window.removeEventListener('resize', resizeNeuralCanvas);
+    window.removeEventListener('mousemove', handleNeuralMouse);
+    if (neuralCanvas) neuralCanvas.style.display = 'none';
+}
+
+function resizeNeuralCanvas() {
+    if (neuralCanvas) {
+        neuralCanvas.width = window.innerWidth;
+        neuralCanvas.height = window.innerHeight;
+    }
+}
+
+function handleNeuralMouse(event) {
+    mouse.x = event.x;
+    mouse.y = event.y;
+}
+
+class Particle {
+    constructor() {
+        this.x = Math.random() * window.innerWidth;
+        this.y = Math.random() * window.innerHeight;
+        this.size = Math.random() * 2 + 1;
+        this.speedX = Math.random() * 1 - 0.5;
+        this.speedY = Math.random() * 1 - 0.5;
+    }
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        if (this.x > window.innerWidth || this.x < 0) this.speedX *= -1;
+        if (this.y > window.innerHeight || this.y < 0) this.speedY *= -1;
+
+        let dx = mouse.x - this.x;
+        let dy = mouse.y - this.y;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < mouse.radius) {
+            if (mouse.x < this.x && this.x < window.innerWidth - 10) this.x += 2;
+            if (mouse.x > this.x && this.x > 10) this.x -= 2;
+            if (mouse.y < this.y && this.y < window.innerHeight - 10) this.y += 2;
+            if (mouse.y > this.y && this.y > 10) this.y -= 2;
+        }
+    }
+    draw(color) {
+        neuralCtx.shadowBlur = 15;
+        neuralCtx.shadowColor = color;
+        neuralCtx.fillStyle = color;
+        neuralCtx.beginPath();
+        neuralCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        neuralCtx.fill();
+    }
+}
+
+function animateNeuralBackground() {
+    if (landingPage.style.display === 'none') return;
+    neuralCanvas.style.display = 'block';
+    
+    const color = getComputedStyle(document.body).getPropertyValue('--primary').trim() || '#6366f1';
+    neuralCtx.globalCompositeOperation = 'source-over';
+    neuralCtx.clearRect(0, 0, neuralCanvas.width, neuralCanvas.height);
+    neuralCtx.globalCompositeOperation = 'lighter';
+
+    for (let i = 0; i < particles.length; i++) {
+        particles[i].update();
+        particles[i].draw(color);
+        for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < 100) {
+                neuralCtx.shadowBlur = 8;
+                neuralCtx.shadowColor = color;
+                neuralCtx.strokeStyle = color;
+                neuralCtx.globalAlpha = 1 - (distance / 100);
+                neuralCtx.lineWidth = 0.5;
+                neuralCtx.beginPath();
+                neuralCtx.moveTo(particles[i].x, particles[i].y);
+                neuralCtx.lineTo(particles[j].x, particles[j].y);
+                neuralCtx.stroke();
+            }
+        }
+    }
+    neuralCtx.globalAlpha = 1;
+    neuralAnimationFrame = requestAnimationFrame(animateNeuralBackground);
 }

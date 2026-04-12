@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 import os
@@ -16,7 +18,7 @@ from schemas import (
     PostCreate, PostResponse, CommentCreate, CommentResponse,
     NotificationResponse, DirectMessageCreate, DirectMessageResponse
 )
-from routers import auth, users, posts, comments, notifications, messages, follows, ai
+from routers import auth, users, posts, comments, notifications, messages, follows, ai, nsfw
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -37,6 +39,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="."), name="static")
+
+# Serve the main HTML page
+@app.get("/")
+async def read_root():
+    return FileResponse("index.html")
+
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
@@ -46,6 +56,7 @@ app.include_router(notifications.router, prefix="/api/notifications", tags=["Not
 app.include_router(messages.router, prefix="/api/messages", tags=["Messages"])
 app.include_router(follows.router, prefix="/api/follows", tags=["Follows"])
 app.include_router(ai.router, prefix="/api/ai", tags=["AI / ML"])
+app.include_router(nsfw.router, prefix="/api/nsfw", tags=["NSFW"])
 
 # Root endpoint
 @app.get("/", tags=["Root"])
@@ -75,4 +86,4 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

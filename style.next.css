@@ -155,6 +155,7 @@ body.dark .site-header.scrolled .header-shell {
     border: 1px solid var(--border);
     border-radius: 28px;
     background: rgba(255, 252, 247, 0.72);
+    -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
     transition: background 0.35s ease, box-shadow 0.35s ease;
 }
@@ -461,7 +462,10 @@ body.dark .hero-copy {
 .image-preview {
     border: 1px solid var(--border);
     background: var(--surface);
+    -webkit-backdrop-filter: blur(20px);
+        box-shadow: var(--shadow-sm);
     backdrop-filter: blur(20px);
+        
 }
 
 .hero-chip {
@@ -536,6 +540,7 @@ body.dark .hero-copy {
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.08);
     color: #f4f7f8;
+    -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
 }
 
@@ -1211,7 +1216,9 @@ body.dark .hero-copy {
     align-items: center;
     justify-content: center;
     background: rgba(5, 12, 16, 0.56);
+    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
+
 }
 
 .modal-content {

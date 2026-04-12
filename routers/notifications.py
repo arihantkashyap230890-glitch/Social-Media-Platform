@@ -15,7 +15,7 @@ async def mark_notification(notification_id: int, mark: NotificationMarkRead, db
     n = db.query(Notification).filter(Notification.id == notification_id).first()
     if not n:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
-    n.is_read = mark.is_read
+    db.query(Notification).filter(Notification.id == notification_id).update({'is_read': mark.is_read})
     db.commit()
     db.refresh(n)
     return n
