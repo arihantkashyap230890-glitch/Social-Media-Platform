@@ -1524,7 +1524,7 @@ function postNsfwContent() {
         showToast("NSFW post created!", "success");
     })
     .catch(error => {
-        console.error("Error posting NSFW content:", "error");
+        console.error('Error posting NSFW content:', error);
         showToast("Failed to post NSFW content.", "error");
     });
 }
