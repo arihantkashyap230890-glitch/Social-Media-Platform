@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from typing import List, Optional
+from typing import List, Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -148,17 +148,17 @@ def build_user_interest_profile(user: User) -> dict[str, float]:
     field_weights = {"bio": 1.5, "profile": 1.0, "post": 1.2}
     interest_vector = defaultdict(float)
 
-    if user.bio:
-        for keyword, count in vectorize_text(user.bio, limit=12).items():
+    if user.bio is not None:
+        for keyword, count in vectorize_text(str(user.bio), limit=12).items():
             interest_vector[keyword] += count * field_weights["bio"]
 
     profile_text = " ".join(str(value) for value in [user.full_name, user.username] if value is not None)
     if profile_text.strip():
-        for keyword, count in vectorize_text(profile_text, limit=12).items():
+        for keyword, count in vectorize_text(str(profile_text), limit=12).items():
             interest_vector[keyword] += count * field_weights["profile"]
 
     for post in user.posts:
-        for keyword, count in vectorize_text(post.content, limit=8).items():
+        for keyword, count in vectorize_text(str(post.content), limit=8).items():
             interest_vector[keyword] += count * field_weights["post"]
 
     return dict(interest_vector)
@@ -224,10 +224,10 @@ async def get_recommendations(user_id: int, limit: int = 5, db: Session = Depend
 
     ranked: List[RecommendationItem] = []
     for post in candidate_posts:
-        post_keywords = set(extract_keywords(post.content, limit=8))
+        post_keywords = set(extract_keywords(str(post.content), limit=8))
         overlap = interest_keywords & post_keywords
         popularity_bonus = len(post.comments) * 1.5 + len(post.liked_by) * 1.2
-        score = len(overlap) * 12 + popularity_bonus + min(len(post.content) / 30, 8)
+        score = len(overlap) * 12 + popularity_bonus + min(len(str(post.content)) / 30, 8)
 
         reasons = []
         if overlap:
@@ -241,10 +241,10 @@ async def get_recommendations(user_id: int, limit: int = 5, db: Session = Depend
 
         ranked.append(
             RecommendationItem(
-                post_id=post.id,
-                author_id=post.author_id,
-                author_username=post.author.username,
-                content=post.content,
+                post_id=cast(int, post.id),
+                author_id=cast(int, post.author_id),
+                author_username=str(post.author.username),
+                content=str(post.content),
                 score=round(score, 1),
                 reasons=reasons[:3],
             )

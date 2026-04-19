@@ -3,11 +3,9 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# Database URL - MongoDB configuration
-# Update this with your MongoDB connection string
-# Default: mongodb://localhost:27017 (for local MongoDB)
-# For MongoDB Atlas: mongodb+srv://username:password@cluster.mongodb.net/database_name
-DATABASE_URL = os.getenv("DATABASE_URL", "mongodb://localhost:27017/connect_hub")
+# Database URL - SQLite for development
+# To use MongoDB, you'll need to switch to mongoengine or use pymongo directly
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./connect_hub.db")
 
 # Create engine
 engine = create_engine(
