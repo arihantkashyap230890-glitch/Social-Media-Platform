@@ -51,7 +51,8 @@ body.dark {
 #signupForm,
 #messagesContainer,
 #emojiPicker,
-#userInfo {
+#userInfo,
+#aiAssistPanel {
     display: none;
 }
 
@@ -232,6 +233,86 @@ body.dark .header-shell {
     justify-content: flex-end;
     gap: 12px;
     flex-wrap: wrap;
+}
+
+.main-navigation {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.nav-cards {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.nav-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface-strong);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-sm);
+    min-width: 140px;
+}
+
+.nav-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent);
+}
+
+.nav-card.active {
+    background: linear-gradient(135deg, var(--accent-soft), var(--teal-soft));
+    border-color: var(--accent);
+    box-shadow: var(--shadow-glow);
+}
+
+.nav-card-icon {
+    font-size: 1.5rem;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-card-content h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.nav-card-content p {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.3;
+}
+
+.nav-link-btn {
+    padding: 12px 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface-strong);
+    color: var(--text);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.nav-link-btn:hover {
+    background: var(--accent);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
 }
 
 .search-shell,

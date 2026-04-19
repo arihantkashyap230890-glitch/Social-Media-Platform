@@ -65,7 +65,8 @@ body.dark {
 #signupForm,
 #messagesContainer,
 #emojiPicker,
-#userInfo {
+#userInfo,
+#aiAssistPanel {
     display: none;
 }
 

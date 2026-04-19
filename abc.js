@@ -16,6 +16,12 @@ const totalUsersEl = document.getElementById("totalUsers");
 const totalPostsEl = document.getElementById("totalPosts");
 const totalLikesEl = document.getElementById("totalLikes");
 
+// Navigation card elements
+const homeBtn = document.getElementById("homeBtn");
+const feedBtn = document.getElementById("feedBtn");
+const aiBtn = document.getElementById("aiBtn");
+const aiAssistPanel = document.getElementById("aiAssistPanel");
+
 const searchInput = document.getElementById("searchInput");
 const themeToggle = document.getElementById("themeToggle");
 const notificationsBtn = document.getElementById("notificationsBtn");
@@ -506,20 +512,7 @@ function showAuthModal() {
 
 function hideAuthModal() {
     authModal.style.display = "none";
-    landingPage.style.display = "none";
-    mainContainer.style.display = "block";
-    userInfo.style.display = "flex";
-    currentUserSpan.textContent = currentUser ? currentUser.name : "";
-    loadTheme();
-    updateStats();
-    updateNotificationsBadge();
-    updateDMBadge();
-    updateCharCount();
-    renderImagePreview();
-    loadPosts();
-    window.requestAnimationFrame(() => refreshMotionTargets(mainContainer));
-    stopNeuralBackground();
-    window.removeEventListener("scroll", handleLandingParallax);
+    switchToFeed();
 }
 
 /**
@@ -566,12 +559,96 @@ function closeModals() {
     nsfwModal.style.display = "none";
     emojiPicker.style.display = "none";
 
+    // Don't automatically switch views when closing modals
+}
+
+// Navigation functions
+function switchToHome() {
+    // Update active nav card
+    homeBtn.classList.add("active");
+    feedBtn.classList.remove("active");
+    aiBtn.classList.remove("active");
+
+    // Show landing page, hide others
+    landingPage.style.display = "block";
+    mainContainer.style.display = "none";
+    aiAssistPanel.style.display = "none";
+
+    // Update UI elements
+    userInfo.style.display = "none";
+    currentUserSpan.textContent = "";
+
+    // Initialize landing page features
+    updateStats();
+    renderRecommendations();
+    window.requestAnimationFrame(() => refreshMotionTargets(landingPage));
+    initNeuralBackground();
+    window.addEventListener("scroll", handleLandingParallax, { passive: true });
+}
+
+function switchToFeed() {
     if (!currentUser) {
-        showLandingPage();
-    } else {
-        stopNeuralBackground();
-        window.removeEventListener("scroll", handleLandingParallax);
+        showAuthModal();
+        showToast("Sign in to access your feed.", "info");
+        return;
     }
+
+    // Update active nav card
+    homeBtn.classList.remove("active");
+    feedBtn.classList.add("active");
+    aiBtn.classList.remove("active");
+
+    // Show main container, hide others
+    landingPage.style.display = "none";
+    mainContainer.style.display = "block";
+    aiAssistPanel.style.display = "none";
+
+    // Update UI elements
+    userInfo.style.display = "flex";
+    currentUserSpan.textContent = currentUser ? currentUser.name : "";
+
+    // Initialize feed features
+    loadTheme();
+    updateStats();
+    updateNotificationsBadge();
+    updateDMBadge();
+    updateCharCount();
+    renderImagePreview();
+    loadPosts();
+    window.requestAnimationFrame(() => refreshMotionTargets(mainContainer));
+    stopNeuralBackground();
+    window.removeEventListener("scroll", handleLandingParallax);
+}
+
+function switchToAI() {
+    if (!currentUser) {
+        showAuthModal();
+        showToast("Sign in to access AI Studio.", "info");
+        return;
+    }
+
+    // Update active nav card
+    homeBtn.classList.remove("active");
+    feedBtn.classList.remove("active");
+    aiBtn.classList.add("active");
+
+    // Show AI panel, hide others
+    landingPage.style.display = "none";
+    mainContainer.style.display = "none";
+    aiAssistPanel.style.display = "block";
+
+    // Update UI elements
+    userInfo.style.display = "flex";
+    currentUserSpan.textContent = currentUser ? currentUser.name : "";
+
+    // Initialize AI features
+    loadTheme();
+    updateCharCount();
+    renderImagePreview();
+    resetAIInsights();
+    window.requestAnimationFrame(() => refreshMotionTargets(aiAssistPanel));
+    stopNeuralBackground();
+    window.removeEventListener("scroll", handleLandingParallax);
 }
 
 async function login(username, password) {
@@ -688,7 +765,7 @@ function logout() {
     localStorage.removeItem('access_token');
     saveCurrentUser();
     closeModals();
-    showLandingPage();
+    switchToHome();
     showToast("You have been logged out.", "info");
 }
 
@@ -2545,6 +2622,11 @@ applyRewriteBtn.addEventListener("click", () => {
     showToast("AI rewrite applied to your draft.", "success");
 });
 
+// Navigation event listeners
+if (homeBtn) homeBtn.addEventListener("click", switchToHome);
+if (feedBtn) feedBtn.addEventListener("click", switchToFeed);
+if (aiBtn) aiBtn.addEventListener("click", switchToAI);
+
 document.querySelectorAll(".close").forEach((closeBtn) => {
     closeBtn.addEventListener("click", closeModals);
     closeBtn.addEventListener("keydown", (event) => {
@@ -2653,9 +2735,9 @@ startSystemPulse();
 refreshMotionTargets(document);
 
 if (currentUser) {
-    hideAuthModal();
+    switchToFeed(); // Default to feed for logged-in users
 } else {
-    showLandingPage();
+    switchToHome(); // Default to home for non-logged-in users
 }
 
 /**

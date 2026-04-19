@@ -43,12 +43,30 @@
             </div>
 
             <nav class="main-navigation" aria-label="Primary Navigation">
-                <ul class="nav-links">
-                    <li><a href="#landingPage" class="nav-link active">Home</a></li>
-                    <li><a href="#mainContainer" class="nav-link">Feed</a></li>
-                    <li><a href="#aiAssistPanel" class="nav-link">AI Studio</a></li>
-                    <li><button id="exploreBtn" class="nav-link nav-link-btn">Explore</button></li>
-                </ul>
+                <div class="nav-cards">
+                    <button id="homeBtn" class="nav-card active" type="button">
+                        <div class="nav-card-icon">🏠</div>
+                        <div class="nav-card-content">
+                            <h3>Home</h3>
+                            <p>Welcome & discover</p>
+                        </div>
+                    </button>
+                    <button id="feedBtn" class="nav-card" type="button">
+                        <div class="nav-card-icon">📱</div>
+                        <div class="nav-card-content">
+                            <h3>Feed</h3>
+                            <p>Social posts & discussions</p>
+                        </div>
+                    </button>
+                    <button id="aiBtn" class="nav-card" type="button">
+                        <div class="nav-card-icon">🤖</div>
+                        <div class="nav-card-content">
+                            <h3>AI Studio</h3>
+                            <p>Smart writing assistant</p>
+                        </div>
+                    </button>
+                </div>
+                <button id="exploreBtn" class="nav-link-btn">Explore</button>
             </nav>
         </div>
     </header>
