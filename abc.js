@@ -15,14 +15,19 @@ const learnMoreBtn = document.getElementById("learnMoreBtn");
 const totalUsersEl = document.getElementById("totalUsers");
 const totalPostsEl = document.getElementById("totalPosts");
 const totalLikesEl = document.getElementById("totalLikes");
-
-// Navigation card elements
-const homeBtn = document.getElementById("homeBtn");
-const feedBtn = document.getElementById("feedBtn");
-const aiBtn = document.getElementById("aiBtn");
-const aiAssistPanel = document.getElementById("aiAssistPanel");
+const hypeBandTrack = document.getElementById("hypeBandTrack");
+const engagementPulseValue = document.getElementById("engagementPulseValue");
+const trendVelocityValue = document.getElementById("trendVelocityValue");
+const creatorStreakValue = document.getElementById("creatorStreakValue");
+const spotlightTopic = document.getElementById("spotlightTopic");
+const spotlightDescription = document.getElementById("spotlightDescription");
+const launchChallengeBtn = document.getElementById("launchChallengeBtn");
 
 const searchInput = document.getElementById("searchInput");
+const exploreBtn = document.getElementById("exploreBtn");
+const explorePage = document.getElementById("explorePage");
+const exploreSearchInput = document.getElementById("exploreSearchInput");
+const exploreGrid = document.getElementById("exploreGrid");
 const themeToggle = document.getElementById("themeToggle");
 const notificationsBtn = document.getElementById("notificationsBtn");
 const settingsBtn = document.getElementById("settingsBtn");
@@ -110,7 +115,7 @@ let currentAIAnalysis = null;
 let currentImageData = null;
 let currentFeedFilter = "all";
 
-const API_BASE = "http://localhost:8001";
+const API_BASE = window.location.origin;
 const AI_API_BASE = `${API_BASE}/api/ai`;
 const CHATBOT_STARTERS = [
     "How do recommendations work?",
@@ -121,6 +126,7 @@ const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 const MOTION_TARGET_SELECTOR = ".hero-copy, .hero-preview, .feature, .about-container, .composer-card, .ai-panel, .feed-shell, .recommended-card, .post, .empty-state";
 
 let revealObserver = null;
+let engagementLoop = null;
 
 // Neural Background State
 let neuralCanvas, neuralCtx, particles = [];
@@ -194,8 +200,32 @@ function normalizePost(post) {
         timestamp: formatTime(new Date(createdAt)),
         likes: Number(post && post.likes) || 0,
         likedBy: Array.isArray(post && post.likedBy) ? post.likedBy : [],
-        comments: Number(post && post.comments) || 0
+        comments: Number(post && post.comments) || 0,
+        serverManaged: Boolean(post && post.serverManaged)
     };
+}
+
+function normalizeApiPost(post) {
+    const author = post && post.author ? post.author : {};
+    const likedBy = Array.isArray(post && post.liked_by)
+        ? post.liked_by.map((user) => user && user.id).filter(Boolean)
+        : Array.isArray(post && post.likedBy)
+            ? post.likedBy
+            : [];
+
+    return normalizePost({
+        id: post && post.id,
+        userId: (post && post.author_id) || (author && author.id) || null,
+        username: (author && author.username) || (post && post.username) || "Unknown",
+        content: (post && post.content) || "",
+        category: (post && post.category) || "",
+        image: (post && (post.image_url || post.image)) || null,
+        createdAt: (post && (post.created_at || post.createdAt)) || new Date().toISOString(),
+        likes: Number((post && post.likes_count) || (post && post.likes) || likedBy.length || 0),
+        likedBy,
+        comments: Number((post && post.comments_count) || (Array.isArray(post && post.comments) ? post.comments.length : 0)),
+        serverManaged: true
+    });
 }
 
 function normalizeComment(comment) {
@@ -512,7 +542,20 @@ function showAuthModal() {
 
 function hideAuthModal() {
     authModal.style.display = "none";
-    switchToFeed();
+    landingPage.style.display = "none";
+    mainContainer.style.display = "block";
+    userInfo.style.display = "flex";
+    currentUserSpan.textContent = currentUser ? currentUser.name : "";
+    loadTheme();
+    updateStats();
+    updateNotificationsBadge();
+    updateDMBadge();
+    updateCharCount();
+    renderImagePreview();
+    loadPosts();
+    window.requestAnimationFrame(() => refreshMotionTargets(mainContainer));
+    stopNeuralBackground();
+    window.removeEventListener("scroll", handleLandingParallax);
 }
 
 /**
@@ -538,6 +581,7 @@ function showLandingPage() {
     landingPage.style.display = "block";
     authModal.style.display = "none";
     mainContainer.style.display = "none";
+    explorePage.style.display = "none";
     userInfo.style.display = "none";
     currentUserSpan.textContent = "";
     updateStats();
@@ -545,6 +589,43 @@ function showLandingPage() {
     window.requestAnimationFrame(() => refreshMotionTargets(landingPage));
     initNeuralBackground();
     window.addEventListener("scroll", handleLandingParallax, { passive: true });
+}
+
+function showExplorePage() {
+    if (!explorePage) return;
+    explorePage.style.display = "block";
+    authModal.style.display = "none";
+    landingPage.style.display = "none";
+    loadExploreGrid();
+    explorePage.scrollIntoView({ behavior: "smooth" });
+}
+
+function loadExploreGrid() {
+    if (!exploreGrid) return;
+
+    const query = exploreSearchInput?.value.trim().toLowerCase() || "";
+    const sampleCards = posts.length > 0 ? posts.slice(0, 12).map((post) => ({
+        title: post.username || "Community post",
+        description: post.content.slice(0, 120),
+        category: post.category || "general"
+    })) : [
+        { title: "Meet the community", description: "Explore trending topics, AI advice, and meaningful conversations.", category: "general" },
+        { title: "AI Studio tips", description: "Get writing help, hashtags, and draft coaching from your assistant.", category: "tech" },
+        { title: "Creator stories", description: "Discover simple ways to share more thoughtful posts with clarity.", category: "lifestyle" }
+    ];
+
+    const filtered = sampleCards.filter((item) => {
+        if (!query) return true;
+        return `${item.title} ${item.description} ${item.category}`.toLowerCase().includes(query);
+    });
+
+    exploreGrid.innerHTML = filtered.map((item) => `
+        <article class="explore-card">
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.description)}</p>
+            <span class="explore-tag">${escapeHtml(item.category)}</span>
+        </article>
+    `).join("");
 }
 
 function closeModals() {
@@ -559,96 +640,12 @@ function closeModals() {
     nsfwModal.style.display = "none";
     emojiPicker.style.display = "none";
 
-    // Don't automatically switch views when closing modals
-}
-
-// Navigation functions
-function switchToHome() {
-    // Update active nav card
-    homeBtn.classList.add("active");
-    feedBtn.classList.remove("active");
-    aiBtn.classList.remove("active");
-
-    // Show landing page, hide others
-    landingPage.style.display = "block";
-    mainContainer.style.display = "none";
-    aiAssistPanel.style.display = "none";
-
-    // Update UI elements
-    userInfo.style.display = "none";
-    currentUserSpan.textContent = "";
-
-    // Initialize landing page features
-    updateStats();
-    renderRecommendations();
-    window.requestAnimationFrame(() => refreshMotionTargets(landingPage));
-    initNeuralBackground();
-    window.addEventListener("scroll", handleLandingParallax, { passive: true });
-}
-
-function switchToFeed() {
     if (!currentUser) {
-        showAuthModal();
-        showToast("Sign in to access your feed.", "info");
-        return;
+        showLandingPage();
+    } else {
+        stopNeuralBackground();
+        window.removeEventListener("scroll", handleLandingParallax);
     }
-
-    // Update active nav card
-    homeBtn.classList.remove("active");
-    feedBtn.classList.add("active");
-    aiBtn.classList.remove("active");
-
-    // Show main container, hide others
-    landingPage.style.display = "none";
-    mainContainer.style.display = "block";
-    aiAssistPanel.style.display = "none";
-
-    // Update UI elements
-    userInfo.style.display = "flex";
-    currentUserSpan.textContent = currentUser ? currentUser.name : "";
-
-    // Initialize feed features
-    loadTheme();
-    updateStats();
-    updateNotificationsBadge();
-    updateDMBadge();
-    updateCharCount();
-    renderImagePreview();
-    loadPosts();
-    window.requestAnimationFrame(() => refreshMotionTargets(mainContainer));
-    stopNeuralBackground();
-    window.removeEventListener("scroll", handleLandingParallax);
-}
-
-function switchToAI() {
-    if (!currentUser) {
-        showAuthModal();
-        showToast("Sign in to access AI Studio.", "info");
-        return;
-    }
-
-    // Update active nav card
-    homeBtn.classList.remove("active");
-    feedBtn.classList.remove("active");
-    aiBtn.classList.add("active");
-
-    // Show AI panel, hide others
-    landingPage.style.display = "none";
-    mainContainer.style.display = "none";
-    aiAssistPanel.style.display = "block";
-
-    // Update UI elements
-    userInfo.style.display = "flex";
-    currentUserSpan.textContent = currentUser ? currentUser.name : "";
-
-    // Initialize AI features
-    loadTheme();
-    updateCharCount();
-    renderImagePreview();
-    resetAIInsights();
-    window.requestAnimationFrame(() => refreshMotionTargets(aiAssistPanel));
-    stopNeuralBackground();
-    window.removeEventListener("scroll", handleLandingParallax);
 }
 
 async function login(username, password) {
@@ -687,6 +684,7 @@ async function login(username, password) {
             following: []
         };
 
+        syncCurrentUserRecord();
         saveCurrentUser();
         hideAuthModal();
         showToast(`Welcome back, ${currentUser.name}.`, "success");
@@ -747,6 +745,7 @@ async function signup(username, name, email, password) {
                 following: []
             };
 
+            syncCurrentUserRecord();
             saveCurrentUser();
             hideAuthModal();
             showToast(`Account created for ${currentUser.name}.`, "success");
@@ -765,16 +764,39 @@ function logout() {
     localStorage.removeItem('access_token');
     saveCurrentUser();
     closeModals();
-    switchToHome();
+    showLandingPage();
     showToast("You have been logged out.", "info");
 }
 
 async function deletePost(postId) {
     try {
+        const post = posts.find((item) => item.id === postId);
+        const isLocalOnlyPost = post && !post.serverManaged;
+
+        if (isLocalOnlyPost) {
+            posts = posts.filter(p => p.id !== postId);
+            comments = comments.filter(c => c.postId !== postId);
+            savePosts();
+            saveComments();
+            updateStats();
+            loadPosts();
+            showToast("Post deleted successfully.", "success");
+            return;
+        }
+
         const token = localStorage.getItem('access_token');
         if (!token) {
-            showToast("You must be logged in to delete posts.", "error");
+            showToast("You must be logged in to delete server posts.", "error");
             return;
+        }
+
+        let confirmationToken = null;
+        if (!currentUser.is_admin) {
+            confirmationToken = await requestConfirmationToken("delete_post", postId);
+            if (!confirmationToken) {
+                showToast("Could not confirm the delete action.", "error");
+                return;
+            }
         }
 
         const endpoint = currentUser.is_admin ? `${API_BASE}/api/posts/${postId}` : `${API_BASE}/api/posts/${postId}/user`;
@@ -785,14 +807,12 @@ async function deletePost(postId) {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
-            body: currentUser.is_admin ? null : JSON.stringify({ 
-                confirmation_token: "dummy_token", // For now, using dummy token
-                user_id: currentUser.id 
+            body: currentUser.is_admin ? null : JSON.stringify({
+                confirmation_token: confirmationToken
             })
         });
 
         if (response.ok) {
-            // Remove post from local array
             posts = posts.filter(p => p.id !== postId);
             comments = comments.filter(c => c.postId !== postId);
             savePosts();
@@ -801,13 +821,39 @@ async function deletePost(postId) {
             loadPosts();
             showToast("Post deleted successfully.", "success");
         } else {
-            const error = await response.json();
+            const error = await response.json().catch(() => ({ detail: "Unknown error" }));
             showToast(`Failed to delete post: ${error.detail || 'Unknown error'}`, "error");
         }
     } catch (error) {
         console.error('Delete post error:', error);
         showToast("Failed to delete post.", "error");
     }
+}
+
+async function requestConfirmationToken(action, resourceId) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+        return null;
+    }
+
+    const response = await fetch(`${API_BASE}/api/auth/confirm-action`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            action,
+            resource_id: resourceId
+        })
+    });
+
+    if (!response.ok) {
+        return null;
+    }
+
+    const data = await response.json();
+    return data.confirmation_token || null;
 }
 
 function showToast(message, type = "info") {
@@ -1561,9 +1607,9 @@ function showNsfwModal() {
 function loadNsfwPosts() {
     fetch(`${API_BASE}/api/nsfw/`)
     .then(response => response.json())
-    .then(posts => {
+    .then(apiPosts => {
         nsfwFeed.innerHTML = "";
-        posts.forEach(post => {
+        apiPosts.map(normalizeApiPost).forEach(post => {
             const postElement = createPostElement(post, true);
             nsfwFeed.appendChild(postElement);
         });
@@ -1594,8 +1640,14 @@ function postNsfwContent() {
         },
         body: JSON.stringify(postData)
     })
-    .then(response => response.json())
-    .then(post => {
+    .then(async response => {
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: "Unknown error" }));
+            throw new Error(error.detail || "Unknown error");
+        }
+        return response.json();
+    })
+    .then(() => {
         nsfwContent.value = "";
         loadNsfwPosts();
         showToast("NSFW post created!", "success");
@@ -2489,6 +2541,10 @@ postForm.addEventListener("submit", (event) => {
         return;
     }
 
+    if (!requireAuth("Sign in to publish a post.")) {
+        return;
+    }
+
     addPost(content);
     postForm.reset();
     categorySelect.value = "";
@@ -2622,11 +2678,6 @@ applyRewriteBtn.addEventListener("click", () => {
     showToast("AI rewrite applied to your draft.", "success");
 });
 
-// Navigation event listeners
-if (homeBtn) homeBtn.addEventListener("click", switchToHome);
-if (feedBtn) feedBtn.addEventListener("click", switchToFeed);
-if (aiBtn) aiBtn.addEventListener("click", switchToAI);
-
 document.querySelectorAll(".close").forEach((closeBtn) => {
     closeBtn.addEventListener("click", closeModals);
     closeBtn.addEventListener("keydown", (event) => {
@@ -2697,6 +2748,20 @@ getStartedBtn.addEventListener("click", showAuthModal);
 learnMoreBtn.addEventListener("click", () => {
     document.querySelector(".about-creator-section").scrollIntoView({ behavior: "smooth" });
 });
+exploreBtn.addEventListener("click", showExplorePage);
+exploreSearchInput?.addEventListener("input", loadExploreGrid);
+launchChallengeBtn?.addEventListener("click", () => {
+    if (!currentUser) {
+        showAuthModal();
+        showToast("Sign in to jump into the challenge.", "info");
+        return;
+    }
+
+    mainContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+    postContent.focus();
+    postContent.placeholder = "Write a sharp, conversation-starting post...";
+    showToast("Challenge unlocked. Make it bold.", "success");
+});
 
 // Chatbot event listeners
 chatbotBtn.addEventListener("click", showChatbotModal);
@@ -2732,12 +2797,13 @@ updateNotificationsBadge();
 updateStats();
 setHeaderState();
 startSystemPulse();
+startEngagementLoop();
 refreshMotionTargets(document);
 
 if (currentUser) {
-    switchToFeed(); // Default to feed for logged-in users
+    hideAuthModal();
 } else {
-    switchToHome(); // Default to home for non-logged-in users
+    showLandingPage();
 }
 
 /**
@@ -2765,6 +2831,63 @@ function startSystemPulse() {
         const event = events[Math.floor(Math.random() * events.length)];
         if (aiInsightStatus) aiInsightStatus.textContent = `[PULSE] ${event} | ${new Date().toLocaleTimeString()}`;
     }, 8000);
+}
+
+function startEngagementLoop() {
+    if (engagementLoop) {
+        clearInterval(engagementLoop);
+    }
+
+    const spotlights = [
+        {
+            topic: "AI-assisted storytelling is surging.",
+            description: "Creators are mixing personality, clarity, and visual polish to stand out fast."
+        },
+        {
+            topic: "Short-form opinion posts are getting more replies.",
+            description: "A sharper hook and one strong question are outperforming longer generic updates."
+        },
+        {
+            topic: "Behind-the-scenes creator drops are trending.",
+            description: "People stay longer when posts feel personal, unfinished, and slightly exclusive."
+        },
+        {
+            topic: "Visual-first posts are pulling stronger engagement.",
+            description: "Richer previews and stronger hierarchy make images feel more clickable and memorable."
+        }
+    ];
+
+    let index = 0;
+    const updateSpotlight = () => {
+        const spotlight = spotlights[index % spotlights.length];
+        const pulse = 72 + Math.round(Math.random() * 25);
+        const velocity = 8 + Math.round(Math.random() * 9);
+        const streak = 3 + Math.round(Math.random() * 11);
+
+        if (engagementPulseValue) {
+            engagementPulseValue.textContent = `${pulse}%`;
+        }
+        if (trendVelocityValue) {
+            trendVelocityValue.textContent = `${velocity}x`;
+        }
+        if (creatorStreakValue) {
+            creatorStreakValue.textContent = `${streak} days`;
+        }
+        if (spotlightTopic) {
+            spotlightTopic.textContent = spotlight.topic;
+        }
+        if (spotlightDescription) {
+            spotlightDescription.textContent = spotlight.description;
+        }
+        if (hypeBandTrack) {
+            hypeBandTrack.style.setProperty("--ticker-tilt", `${(Math.random() * 2 - 1).toFixed(2)}deg`);
+        }
+
+        index += 1;
+    };
+
+    updateSpotlight();
+    engagementLoop = setInterval(updateSpotlight, 4800);
 }
 
 /**

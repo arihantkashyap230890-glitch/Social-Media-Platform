@@ -35,6 +35,7 @@ class User(Base):
     followers = relationship("Follow", foreign_keys="Follow.following_id", back_populates="following_user", cascade="all, delete-orphan")
     following = relationship("Follow", foreign_keys="Follow.follower_id", back_populates="follower_user", cascade="all, delete-orphan")
     notifications = relationship("Notification", foreign_keys="Notification.recipient_id", back_populates="recipient", cascade="all, delete-orphan")
+    sent_notifications = relationship("Notification", foreign_keys="Notification.sender_id", back_populates="sender", cascade="all, delete-orphan")
     sent_messages = relationship("DirectMessage", foreign_keys="DirectMessage.sender_id", back_populates="sender", cascade="all, delete-orphan")
     received_messages = relationship("DirectMessage", foreign_keys="DirectMessage.recipient_id", back_populates="recipient", cascade="all, delete-orphan")
     likes_records = relationship("Like", cascade="all, delete-orphan")
@@ -111,6 +112,7 @@ class Notification(Base):
     
     # Relationships
     recipient = relationship("User", foreign_keys=[recipient_id], back_populates="notifications")
+    sender = relationship("User", foreign_keys=[sender_id], back_populates="sent_notifications")
 
 class DirectMessage(Base):
     __tablename__ = "direct_messages"

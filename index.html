@@ -31,6 +31,8 @@
                     <input type="text" id="searchInput" placeholder="Find posts, people, or hashtags" />
                 </label>
                 <button id="themeToggle" class="utility-btn" type="button" aria-label="Toggle theme">Theme</button>
+                <button id="chatbotBtn" class="utility-btn" type="button">Chatbot</button>
+                <button id="nsfwBtn" class="utility-btn" type="button">NSFW</button>
                 <button id="dmBtn" class="utility-btn" type="button">Inbox <span id="dmBadge" class="notification-badge">0</span></button>
                 <button id="notificationsBtn" class="utility-btn" type="button">Alerts <span id="notificationCount" class="notification-badge">0</span></button>
                 <button id="settingsBtn" class="utility-btn" type="button">Settings</button>
@@ -43,30 +45,12 @@
             </div>
 
             <nav class="main-navigation" aria-label="Primary Navigation">
-                <div class="nav-cards">
-                    <button id="homeBtn" class="nav-card active" type="button">
-                        <div class="nav-card-icon">🏠</div>
-                        <div class="nav-card-content">
-                            <h3>Home</h3>
-                            <p>Welcome & discover</p>
-                        </div>
-                    </button>
-                    <button id="feedBtn" class="nav-card" type="button">
-                        <div class="nav-card-icon">📱</div>
-                        <div class="nav-card-content">
-                            <h3>Feed</h3>
-                            <p>Social posts & discussions</p>
-                        </div>
-                    </button>
-                    <button id="aiBtn" class="nav-card" type="button">
-                        <div class="nav-card-icon">🤖</div>
-                        <div class="nav-card-content">
-                            <h3>AI Studio</h3>
-                            <p>Smart writing assistant</p>
-                        </div>
-                    </button>
-                </div>
-                <button id="exploreBtn" class="nav-link-btn">Explore</button>
+                <ul class="nav-links">
+                    <li><a href="#landingPage" class="nav-link active">Home</a></li>
+                    <li><a href="#mainContainer" class="nav-link">Feed</a></li>
+                    <li><a href="#aiAssistPanel" class="nav-link">AI Studio</a></li>
+                    <li><button id="exploreBtn" class="nav-link nav-link-btn">Explore</button></li>
+                </ul>
             </nav>
         </div>
     </header>
@@ -155,6 +139,88 @@
                     <p>Messages, profiles, notifications, and recommendations all live in one smooth experience.</p>
                 </article>
             </div>
+
+            <section class="hype-band" aria-label="Live platform pulse">
+                <div class="hype-band-track" id="hypeBandTrack">
+                    <span>Live now: creators drafting with AI Studio</span>
+                    <span>Trending: bold storytelling, tech drops, creator diaries</span>
+                    <span>Engagement pulse: faster conversations, richer posts, sharper visuals</span>
+                    <span>Momentum: your next post can land in the spotlight</span>
+                </div>
+            </section>
+
+            <section class="engagement-lab">
+                <div class="engagement-story-card">
+                    <div class="section-heading">
+                        <div>
+                            <span class="section-kicker">Momentum Engine</span>
+                            <h2>Built To Trigger Curiosity</h2>
+                        </div>
+                        <p class="section-meta">More depth, more motion, more reasons to click around and stay.</p>
+                    </div>
+
+                    <div class="engagement-metrics-grid">
+                        <article class="engagement-metric">
+                            <span class="engagement-label">Live energy</span>
+                            <strong id="engagementPulseValue">84%</strong>
+                            <p>Visual rhythm, glowing surfaces, and motion cues keep the interface feeling active.</p>
+                        </article>
+                        <article class="engagement-metric">
+                            <span class="engagement-label">Trend velocity</span>
+                            <strong id="trendVelocityValue">12x</strong>
+                            <p>Recommendation and discovery zones now feel more like a launchpad than a list.</p>
+                        </article>
+                        <article class="engagement-metric">
+                            <span class="engagement-label">Creator streak</span>
+                            <strong id="creatorStreakValue">7 days</strong>
+                            <p>Playful challenge framing nudges people to post, explore, and come back tomorrow.</p>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="spotlight-stack">
+                    <article class="spotlight-card spotlight-primary">
+                        <span class="spotlight-eyebrow">Tonight's creator challenge</span>
+                        <h3>Drop a post that starts a conversation in under 20 words.</h3>
+                        <p>Shorter, sharper prompts lead to more replies, stronger hooks, and higher curiosity.</p>
+                        <button id="launchChallengeBtn" class="secondary-button" type="button">Open The Composer</button>
+                    </article>
+                    <article class="spotlight-card spotlight-secondary">
+                        <span class="spotlight-eyebrow">Hottest lane right now</span>
+                        <h3 id="spotlightTopic">AI-assisted storytelling is surging.</h3>
+                        <p id="spotlightDescription">Creators are mixing personality, clarity, and visual polish to stand out fast.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="chaos-grid">
+                <article class="chaos-card chaos-card-large">
+                    <span class="section-kicker">Discoverability</span>
+                    <h3>Feed The Algorithm Something Worth Opening</h3>
+                    <p>Visual contrast, faster scan patterns, and richer social proof make the interface feel more rewarding at every pass.</p>
+                    <div class="chaos-orbit">
+                        <span>Bold</span>
+                        <span>Reactive</span>
+                        <span>Playable</span>
+                        <span>Viral-ready</span>
+                    </div>
+                </article>
+                <article class="chaos-card">
+                    <span class="chaos-index">A</span>
+                    <h3>Micro drama</h3>
+                    <p>Animated counters, ticker pulses, and spotlight swaps create a sense of constant movement.</p>
+                </article>
+                <article class="chaos-card">
+                    <span class="chaos-index">B</span>
+                    <h3>High-contrast hierarchy</h3>
+                    <p>More visual tension means key actions pop sooner and people explore deeper before bouncing.</p>
+                </article>
+                <article class="chaos-card">
+                    <span class="chaos-index">C</span>
+                    <h3>Return hooks</h3>
+                    <p>Challenges, streak framing, and trend language subtly encourage repeat visits and faster posting.</p>
+                </article>
+            </section>
 
             <section class="about-creator-section">
                 <div class="about-container">
@@ -280,6 +346,14 @@
                                 <span class="ai-label">Best Category</span>
                                 <strong id="aiCategory">general</strong>
                             </div>
+                            <div class="ai-metric-card">
+                                <span class="ai-label">Clarity</span>
+                                <strong id="aiClarity">0</strong>
+                            </div>
+                            <div class="ai-metric-card">
+                                <span class="ai-label">Read Time</span>
+                                <strong id="aiReadTime">0s</strong>
+                            </div>
                         </div>
 
                         <div class="ai-summary-card">
@@ -287,9 +361,32 @@
                             <p id="aiTip" class="ai-tip">Tips will appear after analysis.</p>
                         </div>
 
+                        <div class="ai-coach-grid">
+                            <div class="ai-coach-card">
+                                <h3>Strengths</h3>
+                                <ul id="aiStrengths" class="ai-list">
+                                    <li>Your strongest points will show up here.</li>
+                                </ul>
+                            </div>
+                            <div class="ai-coach-card">
+                                <h3>Action Items</h3>
+                                <ul id="aiActions" class="ai-list">
+                                    <li>Actionable coaching will appear after analysis.</li>
+                                </ul>
+                            </div>
+                        </div>
+
                         <div class="ai-hashtag-row">
                             <div id="aiHashtags" class="ai-hashtags"></div>
                             <button type="button" id="useHashtagsBtn">Add Hashtags</button>
+                        </div>
+
+                        <div class="ai-rewrite-card">
+                            <div class="ai-rewrite-header">
+                                <h3>Suggested Rewrite</h3>
+                                <button type="button" id="applyRewriteBtn" disabled>Use Rewrite</button>
+                            </div>
+                            <p id="aiRewrite">Analyze a draft to generate a stronger rewrite.</p>
                         </div>
 
                         <div class="ai-recommendations">
@@ -355,17 +452,18 @@
 
                 <div id="loginForm" class="auth-form">
                     <h2>Login</h2>
-                    <input type="email" id="loginEmail" placeholder="Email" required />
-                    <input type="password" id="loginPassword" placeholder="Password" required />
+                    <input type="text" id="loginUsername" placeholder="Username or Email" required autocomplete="username" />
+                    <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password" />
                     <button id="loginBtn" type="button">Login</button>
                     <p id="loginError" class="error"></p>
                 </div>
 
                 <div id="signupForm" class="auth-form">
                     <h2>Create Account</h2>
-                    <input type="text" id="signupName" placeholder="Full Name" required />
-                    <input type="email" id="signupEmail" placeholder="Email" required />
-                    <input type="password" id="signupPassword" placeholder="Password" required />
+                    <input type="text" id="signupUsername" placeholder="Username" required autocomplete="username" />
+                    <input type="text" id="signupName" placeholder="Full Name" required autocomplete="name" />
+                    <input type="email" id="signupEmail" placeholder="Email" required autocomplete="email" />
+                    <input type="password" id="signupPassword" placeholder="Password" required autocomplete="new-password" />
                     <button id="signupBtn" type="button">Create Account</button>
                     <p id="signupError" class="error"></p>
                 </div>
@@ -425,6 +523,44 @@
             <h2>Notifications</h2>
             <div id="notificationsList"></div>
             <button id="clearNotificationsBtn" type="button">Clear All</button>
+        </div>
+    </div>
+
+    <!-- Chatbot Modal -->
+    <div id="chatbotModal" class="modal">
+        <div class="modal-content large">
+            <span class="close" role="button" tabindex="0" aria-label="Close chatbot modal">&times;</span>
+            <h2>Connect Hub Assistant</h2>
+            <div id="chatMessages" class="chat-messages"></div>
+            <div class="chat-form">
+                <input type="text" id="chatInput" placeholder="Ask the assistant anything..." autocomplete="off" />
+                <button id="sendChatBtn" type="button">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Age Verification Modal -->
+    <div id="ageVerificationModal" class="modal">
+        <div class="modal-content">
+            <span class="close" role="button" tabindex="0" aria-label="Close age verification modal">&times;</span>
+            <h2>Age Verification</h2>
+            <p>You must be 18 or older to access adult content.</p>
+            <button id="confirm18Plus" type="button">I am 18 or older</button>
+            <button id="under18" type="button">I am under 18</button>
+        </div>
+    </div>
+
+    <!-- NSFW Content Modal -->
+    <div id="nsfwModal" class="modal">
+        <div class="modal-content large">
+            <span class="close" role="button" tabindex="0" aria-label="Close NSFW modal">&times;</span>
+            <h2>NSFW Content</h2>
+            <p>Use this space to share mature content responsibly. You must verify your age before posting.</p>
+            <textarea id="nsfwContent" rows="5" placeholder="Share your NSFW update..." maxlength="500"></textarea>
+            <div class="modal-actions">
+                <button id="postNsfwBtn" type="button">Publish NSFW Post</button>
+            </div>
+            <div id="nsfwFeed" class="nsfw-feed"></div>
         </div>
     </div>
 

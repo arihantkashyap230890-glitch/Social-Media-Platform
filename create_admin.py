@@ -2,7 +2,7 @@ print("Starting admin creation script...")
 
 from database import SessionLocal, Base, engine
 from models import User
-from routers.auth import hash_password
+from auth import hash_password
 
 print("Creating tables...")
 # Create tables if they don't exist

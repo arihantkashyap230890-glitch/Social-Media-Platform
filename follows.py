@@ -21,7 +21,7 @@ async def unfollow_user(
     user_id: int,
     db: Session = Depends(get_db)
 ):
-    from routers.auth import confirmation_tokens
+    from auth import confirmation_tokens
     from datetime import datetime
     
     f = db.query(Follow).filter(Follow.id == follow_id).first()

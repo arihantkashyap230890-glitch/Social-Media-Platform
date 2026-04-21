@@ -1,1 +1,9 @@
-from . import auth, users, posts, comments, notifications, messages, follows, ai, nsfw
+from . import auth
+from . import users
+from . import posts
+from . import comments
+from . import notifications
+from . import messages
+from . import follows
+from . import ai
+from . import nsfw

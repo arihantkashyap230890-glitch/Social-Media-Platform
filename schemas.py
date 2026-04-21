@@ -28,6 +28,7 @@ class UserResponse(UserBase):
     cover_image: Optional[str]
     created_at: datetime
     is_verified: bool
+    is_admin: bool = False
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -69,11 +70,10 @@ class PostResponse(BaseModel):
     likes_count: int = 0
     liked_by_current_user: bool = False
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PostDetailResponse(PostResponse):
-    comments: List['CommentResponse'] = []
+    comments: List['CommentResponse'] = Field(default_factory=list)
 
 # ==================== Comment Schemas ====================
 class CommentCreate(BaseModel):
@@ -91,8 +91,7 @@ class CommentResponse(BaseModel):
     updated_at: datetime
     author: UserResponse
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==================== Like Schemas ====================
 class LikeResponse(BaseModel):
@@ -100,8 +99,7 @@ class LikeResponse(BaseModel):
     post_id: int
     created_at: datetime
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==================== Follow Schemas ====================
 class FollowResponse(BaseModel):
@@ -110,8 +108,7 @@ class FollowResponse(BaseModel):
     following_id: int
     created_at: datetime
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class FollowUserResponse(BaseModel):
     id: int
@@ -120,8 +117,7 @@ class FollowUserResponse(BaseModel):
     profile_image: Optional[str]
     is_following: bool
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==================== Notification Schemas ====================
 class NotificationResponse(BaseModel):
@@ -133,10 +129,9 @@ class NotificationResponse(BaseModel):
     post_id: Optional[int]
     is_read: bool
     created_at: datetime
-    sender: UserResponse
+    sender: Optional[UserResponse] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class NotificationMarkRead(BaseModel):
     is_read: bool
@@ -155,8 +150,7 @@ class DirectMessageResponse(BaseModel):
     created_at: datetime
     sender: UserResponse
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DirectMessageThread(BaseModel):
     user: UserResponse

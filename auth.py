@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional
 import jwt
-from passlib.context import CryptContext
+import bcrypt
 import os
 from fastapi.security import OAuth2PasswordBearer
 from database import get_db
@@ -15,16 +15,18 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production-12345
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 router = APIRouter()
 
 # Helper functions
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    except ValueError:
+        return False
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
@@ -94,8 +96,10 @@ async def register(user: UserRegister, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 async def login(user: UserLogin, db: Session = Depends(get_db)):
     """Login user and return access token"""
-    # Find user by username
-    db_user = db.query(User).filter(User.username == user.username).first()
+    # Find user by username or email
+    db_user = db.query(User).filter(
+        (User.username == user.username) | (User.email == user.username)
+    ).first()
     
     if not db_user:
         raise HTTPException(
