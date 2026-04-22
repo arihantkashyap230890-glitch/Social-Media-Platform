@@ -606,7 +606,38 @@
                 <div id="messagesContainer">
                     <div id="messagesHeader">
                         <button id="backToConversations" type="button">Back</button>
-                        <span id="chatUserName"></span>
+                        <div id="chatHeaderMeta">
+                            <span id="chatUserName"></span>
+                            <span id="callStatusText">Ready to connect</span>
+                        </div>
+                        <div id="callActions">
+                            <button id="voiceCallBtn" type="button">Voice Call</button>
+                            <button id="videoCallBtn" type="button">Video Call</button>
+                        </div>
+                    </div>
+                    <div id="callPanel" class="call-panel hidden">
+                        <div class="call-panel-header">
+                            <div>
+                                <strong id="callPanelTitle">Call inactive</strong>
+                                <p id="callPanelSubtitle">Start a voice or video call from the conversation header.</p>
+                            </div>
+                            <span id="callTypeBadge" class="call-type-badge">Audio</span>
+                        </div>
+                        <div class="call-media-grid">
+                            <div class="call-media-card">
+                                <span>You</span>
+                                <video id="localVideo" autoplay muted playsinline></video>
+                            </div>
+                            <div class="call-media-card">
+                                <span id="remoteVideoLabel">Remote user</span>
+                                <video id="remoteVideo" autoplay playsinline></video>
+                            </div>
+                        </div>
+                        <div class="call-control-row">
+                            <button id="muteCallBtn" type="button">Mute</button>
+                            <button id="toggleCameraBtn" type="button">Camera Off</button>
+                            <button id="endCallBtn" type="button" class="danger-action">End Call</button>
+                        </div>
                     </div>
                     <div id="messagesList"></div>
                     <div class="message-form">
@@ -615,6 +646,17 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="incomingCallBanner" class="incoming-call-banner hidden">
+        <div>
+            <strong id="incomingCallTitle">Incoming call</strong>
+            <p id="incomingCallSubtitle">Someone is trying to reach you.</p>
+        </div>
+        <div class="incoming-call-actions">
+            <button id="answerCallBtn" type="button">Answer</button>
+            <button id="declineCallBtn" type="button" class="danger-action">Decline</button>
         </div>
     </div>
 

@@ -1490,6 +1490,25 @@ body.dark .auth-panel-copy {
     margin-bottom: 12px;
 }
 
+#chatHeaderMeta {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+#callStatusText {
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+#callActions,
+.call-control-row,
+.incoming-call-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 #backToConversations {
     padding: 10px 14px;
     border: none;
@@ -1497,6 +1516,93 @@ body.dark .auth-panel-copy {
     background: var(--surface-muted);
     color: var(--text);
     cursor: pointer;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.call-panel {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface-muted);
+}
+
+.call-panel-header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.call-panel-header p,
+.incoming-call-banner p {
+    margin: 6px 0 0;
+    color: var(--muted);
+}
+
+.call-type-badge {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(239, 108, 62, 0.14);
+    color: var(--accent-deep);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.call-media-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.call-media-card {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 18px;
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+}
+
+.call-media-card span {
+    font-weight: 700;
+}
+
+.call-media-card video {
+    width: 100%;
+    min-height: 180px;
+    border-radius: 16px;
+    background: #1b1b1b;
+    object-fit: cover;
+}
+
+.danger-action {
+    background: linear-gradient(135deg, #d94f4f, #b43c3c) !important;
+    color: #fff !important;
+}
+
+.incoming-call-banner {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 2200;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: min(420px, calc(100vw - 32px));
+    padding: 18px;
+    border-radius: 22px;
+    border: 1px solid var(--border);
+    background: var(--surface-strong);
+    box-shadow: var(--shadow-md);
 }
 
 #messagesList {
@@ -1671,6 +1777,20 @@ body.dark .auth-panel-copy {
     .post-action-group button,
     .delete-btn {
         flex: 1;
+    }
+
+    .call-media-grid,
+    .incoming-call-banner {
+        grid-template-columns: 1fr;
+    }
+
+    .incoming-call-banner {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        width: auto;
+        flex-direction: column;
+        align-items: stretch;
     }
 }
 

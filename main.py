@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 import ai
 import auth
 import comments
+import calls
 import follows
 import messages
 import notifications
@@ -143,6 +144,7 @@ app.include_router(posts.router, prefix="/api/posts", tags=["Posts"])
 app.include_router(comments.router, prefix="/api/comments", tags=["Comments"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(messages.router, prefix="/api/messages", tags=["Messages"])
+app.include_router(calls.router, prefix="/api/calls", tags=["Calls"])
 app.include_router(follows.router, prefix="/api/follows", tags=["Follows"])
 app.include_router(ai.router, prefix="/api/ai", tags=["AI / ML"])
 app.include_router(nsfw.router, prefix="/api/nsfw", tags=["NSFW"])

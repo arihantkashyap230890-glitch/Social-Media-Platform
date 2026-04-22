@@ -157,6 +157,52 @@ class DirectMessageThread(BaseModel):
     last_message: Optional[DirectMessageResponse]
     unread_count: int
 
+# ==================== Calling Schemas ====================
+class CallSessionCreate(BaseModel):
+    recipient_id: int
+    call_type: str = Field(default="audio", pattern="^(audio|video)$")
+
+class CallOfferUpdate(BaseModel):
+    offer_sdp: str = Field(..., min_length=1)
+
+class CallAnswerUpdate(BaseModel):
+    answer_sdp: str = Field(..., min_length=1)
+
+class CallIceCandidateCreate(BaseModel):
+    role: str = Field(..., pattern="^(caller|callee)$")
+    candidate: str = Field(..., min_length=1)
+    sdp_mid: Optional[str] = None
+    sdp_mline_index: Optional[int] = None
+
+class CallIceCandidateResponse(BaseModel):
+    id: int
+    call_session_id: int
+    user_id: int
+    role: str
+    candidate: str
+    sdp_mid: Optional[str]
+    sdp_mline_index: Optional[int]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class CallSessionResponse(BaseModel):
+    id: int
+    caller_id: int
+    callee_id: int
+    call_type: str
+    status: str
+    offer_sdp: Optional[str]
+    answer_sdp: Optional[str]
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+    caller: Optional[UserResponse] = None
+    callee: Optional[UserResponse] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 # ==================== Search Schemas ====================
 class SearchResponse(BaseModel):
     users: List[UserResponse]

@@ -128,6 +128,38 @@ class DirectMessage(Base):
     sender = relationship("User", foreign_keys=[sender_id], back_populates="sent_messages")
     recipient = relationship("User", foreign_keys=[recipient_id], back_populates="received_messages")
 
+class CallSession(Base):
+    __tablename__ = "call_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    caller_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    callee_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    call_type = Column(String(20), nullable=False, default="audio")
+    status = Column(String(20), nullable=False, default="initiated", index=True)
+    offer_sdp = Column(Text, nullable=True)
+    answer_sdp = Column(Text, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    ended_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    caller = relationship("User", foreign_keys=[caller_id])
+    callee = relationship("User", foreign_keys=[callee_id])
+
+class CallIceCandidate(Base):
+    __tablename__ = "call_ice_candidates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    call_session_id = Column(Integer, ForeignKey("call_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String(20), nullable=False)
+    candidate = Column(Text, nullable=False)
+    sdp_mid = Column(String(255), nullable=True)
+    sdp_mline_index = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    call_session = relationship("CallSession")
+
 class email(Base):
     __tablename__ = "emails"
     id = Column(Integer, primary_key=True, index=True)
