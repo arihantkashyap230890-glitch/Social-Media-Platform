@@ -28,6 +28,7 @@ const exploreBtn = document.getElementById("exploreBtn");
 const explorePage = document.getElementById("explorePage");
 const exploreSearchInput = document.getElementById("exploreSearchInput");
 const exploreGrid = document.getElementById("exploreGrid");
+const closeExploreBtn = document.getElementById("closeExploreBtn");
 const themeToggle = document.getElementById("themeToggle");
 const notificationsBtn = document.getElementById("notificationsBtn");
 const settingsBtn = document.getElementById("settingsBtn");
@@ -151,6 +152,10 @@ const CHATBOT_STARTERS = [
     "Help me improve my current draft",
     "How do I create a post?"
 ];
+const WIKIMEDIA_API_BASE = "https://commons.wikimedia.org/w/api.php";
+const DEFAULT_EXPLORE_QUERY = "trending art photography travel technology fashion nature video";
+const exploreMediaCache = new Map();
+const POLLINATIONS_IMAGE_BASE = "https://image.pollinations.ai/prompt/";
 const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 const MOTION_TARGET_SELECTOR = ".hero-copy, .hero-preview, .feature, .about-container, .composer-card, .ai-panel, .feed-shell, .recommended-card, .post, .empty-state";
 
@@ -625,36 +630,172 @@ function showExplorePage() {
     explorePage.style.display = "block";
     authModal.style.display = "none";
     landingPage.style.display = "none";
+    mainContainer.style.display = "none";
+    if (exploreSearchInput) {
+        exploreSearchInput.value = searchInput.value;
+    }
     loadExploreGrid();
     explorePage.scrollIntoView({ behavior: "smooth" });
+    stopNeuralBackground();
+    window.removeEventListener("scroll", handleLandingParallax);
 }
 
-function loadExploreGrid() {
+function getExploreAccent(index) {
+    if (index % 5 === 0) return "wide";
+    if (index % 3 === 0) return "tall";
+    return "square";
+}
+
+function normalizeWikimediaMedia(page, index) {
+    const imageInfo = Array.isArray(page.imageinfo) ? page.imageinfo[0] : null;
+    if (!imageInfo || !imageInfo.url) {
+        return null;
+    }
+
+    const mime = String(imageInfo.mime || "");
+    const mediaType = String(imageInfo.mediatype || "");
+    const isVideo = mediaType.toUpperCase() === "VIDEO" || mime.startsWith("video/");
+    const title = String(page.title || "Commons media").replace(/^File:/, "");
+    const sourceUrl = isVideo
+        ? (imageInfo.derivatives && imageInfo.derivatives[0] && imageInfo.derivatives[0].src) || imageInfo.url
+        : imageInfo.thumburl || imageInfo.url;
+    const posterUrl = isVideo ? imageInfo.thumburl || null : null;
+
+    return {
+        id: `commons-${page.pageid || index}`,
+        type: isVideo ? "video" : "image",
+        title,
+        description: `Live media from Wikimedia Commons related to ${exploreSearchInput?.value.trim() || "trending topics"}.`,
+        category: isVideo ? "internet video" : "internet image",
+        credit: "Wikimedia Commons",
+        source: sourceUrl,
+        poster: posterUrl,
+        accent: getExploreAccent(index)
+    };
+}
+
+async function fetchWikimediaMedia(query) {
+    const normalizedQuery = (query || DEFAULT_EXPLORE_QUERY).trim().toLowerCase();
+    if (exploreMediaCache.has(normalizedQuery)) {
+        return exploreMediaCache.get(normalizedQuery);
+    }
+
+    const searchTerm = normalizedQuery || DEFAULT_EXPLORE_QUERY;
+    const url = `${WIKIMEDIA_API_BASE}?origin=*&action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(searchTerm)}&gsrlimit=18&prop=imageinfo&iiprop=url|mime|mediatype&iiurlwidth=900&format=json`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error("Could not load internet media.");
+    }
+
+    const data = await response.json();
+    const pages = Object.values((data && data.query && data.query.pages) || {});
+    const items = pages
+        .map((page, index) => normalizeWikimediaMedia(page, index))
+        .filter(Boolean);
+
+    exploreMediaCache.set(normalizedQuery, items);
+    return items;
+}
+
+function buildAiExploreItems(query) {
+    const promptBase = (query || DEFAULT_EXPLORE_QUERY).trim() || DEFAULT_EXPLORE_QUERY;
+    const promptVariants = [
+        `${promptBase}, instagram explore aesthetic, cinematic editorial, highly detailed`,
+        `${promptBase}, futuristic ai art, vibrant social media poster, ultra detailed`,
+        `${promptBase}, dreamy visual culture collage, premium app discover page, bold lighting`,
+        `${promptBase}, stylized concept art, modern digital illustration, trending visual`
+    ];
+
+    return promptVariants.map((prompt, index) => {
+        const seed = `${promptBase.replace(/\s+/g, "-")}-${index + 1}`;
+        const imageUrl = `${POLLINATIONS_IMAGE_BASE}${encodeURIComponent(prompt)}?width=900&height=${index % 2 === 0 ? 1200 : 900}&seed=${encodeURIComponent(seed)}&nologo=true`;
+        return {
+            id: `ai-${seed}`,
+            type: "image",
+            title: `AI Visual ${index + 1}`,
+            description: `Generated live from the prompt: ${promptBase}.`,
+            category: "ai generated",
+            credit: "Pollinations AI",
+            source: imageUrl,
+            accent: getExploreAccent(index + 20)
+        };
+    });
+}
+
+function renderExploreGrid(items) {
+    if (!exploreGrid) return;
+
+    if (!items.length) {
+        exploreGrid.innerHTML = `
+            <article class="explore-empty">
+                <strong>No visual matches yet</strong>
+                <p>Try a broader search term like creator, city, ai, video, fashion, or tech.</p>
+            </article>
+        `;
+        return;
+    }
+
+    exploreGrid.innerHTML = items.map((item) => {
+        const media = item.type === "video"
+            ? `<video class="explore-media" controls muted playsinline preload="metadata" poster="${escapeHtml(item.poster || "")}">
+                    <source src="${escapeHtml(item.source || "")}" />
+               </video>`
+            : item.type === "image" && item.source
+                ? `<img class="explore-media" src="${escapeHtml(item.source)}" alt="${escapeHtml(item.title)}" loading="lazy" />`
+                : `<div class="explore-text-card"><span>${escapeHtml(item.category)}</span><p>${escapeHtml(item.description)}</p></div>`;
+
+        return `
+            <article class="explore-card explore-card-${escapeHtml(item.accent || "square")}">
+                ${media}
+                <div class="explore-overlay">
+                    <div class="explore-meta-top">
+                        <span class="explore-tag">${escapeHtml(item.category)}</span>
+                        <span class="explore-credit">${escapeHtml(item.credit)}</span>
+                    </div>
+                    <strong>${escapeHtml(item.title)}</strong>
+                    <p>${escapeHtml(item.description)}</p>
+                </div>
+            </article>
+        `;
+    }).join("");
+    refreshMotionTargets(exploreGrid);
+}
+
+async function loadExploreGrid() {
     if (!exploreGrid) return;
 
     const query = exploreSearchInput?.value.trim().toLowerCase() || "";
-    const sampleCards = posts.length > 0 ? posts.slice(0, 12).map((post) => ({
+    const communityItems = posts.slice(0, 10).map((post, index) => ({
+        id: `post-${post.id}-${index}`,
+        type: post.image ? "image" : "text",
         title: post.username || "Community post",
-        description: post.content.slice(0, 120),
-        category: post.category || "general"
-    })) : [
-        { title: "Meet the community", description: "Explore trending topics, AI advice, and meaningful conversations.", category: "general" },
-        { title: "AI Studio tips", description: "Get writing help, hashtags, and draft coaching from your assistant.", category: "tech" },
-        { title: "Creator stories", description: "Discover simple ways to share more thoughtful posts with clarity.", category: "lifestyle" }
-    ];
+        description: post.content.slice(0, 140),
+        category: post.category || "community",
+        credit: "User post",
+        source: post.image || null,
+        accent: getExploreAccent(index)
+    }));
 
-    const filtered = sampleCards.filter((item) => {
-        if (!query) return true;
-        return `${item.title} ${item.description} ${item.category}`.toLowerCase().includes(query);
-    });
-
-    exploreGrid.innerHTML = filtered.map((item) => `
-        <article class="explore-card">
-            <strong>${escapeHtml(item.title)}</strong>
-            <p>${escapeHtml(item.description)}</p>
-            <span class="explore-tag">${escapeHtml(item.category)}</span>
+    exploreGrid.innerHTML = `
+        <article class="explore-empty">
+            <strong>Loading live internet media...</strong>
+            <p>Pulling images and videos from Wikimedia Commons.</p>
         </article>
-    `).join("");
+    `;
+
+    try {
+        const internetItems = await fetchWikimediaMedia(query);
+        const aiItems = buildAiExploreItems(query);
+        const mixedItems = [...communityItems, ...aiItems, ...internetItems].filter((item) => {
+            if (!query) return true;
+            return `${item.title} ${item.description} ${item.category} ${item.credit}`.toLowerCase().includes(query);
+        });
+        renderExploreGrid(mixedItems);
+    } catch (error) {
+        console.error("Explore media load failed:", error);
+        renderExploreGrid(communityItems);
+        showToast("Live internet media could not be loaded, so I showed community posts instead.", "info");
+    }
 }
 
 function closeModals() {
@@ -3044,6 +3185,19 @@ signupBtn.addEventListener("click", async () => {
 logoutBtn.addEventListener("click", logout);
 
 searchInput.addEventListener("input", handleSearch);
+searchInput.addEventListener("focus", showExplorePage);
+searchInput.addEventListener("click", showExplorePage);
+searchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        showExplorePage();
+        if (exploreSearchInput) {
+            exploreSearchInput.value = searchInput.value;
+            loadExploreGrid();
+            exploreSearchInput.focus();
+        }
+    }
+});
 themeToggle.addEventListener("click", toggleTheme);
 notificationsBtn.addEventListener("click", showNotificationsModal);
 settingsBtn.addEventListener("click", showSettingsModal);
@@ -3210,6 +3364,15 @@ learnMoreBtn.addEventListener("click", () => {
 });
 exploreBtn?.addEventListener("click", showExplorePage);
 exploreSearchInput?.addEventListener("input", loadExploreGrid);
+closeExploreBtn?.addEventListener("click", () => {
+    explorePage.style.display = "none";
+    if (currentUser) {
+        mainContainer.style.display = "block";
+        window.requestAnimationFrame(() => refreshMotionTargets(mainContainer));
+    } else {
+        showLandingPage();
+    }
+});
 launchChallengeBtn?.addEventListener("click", () => {
     if (!currentUser) {
         showAuthModal();

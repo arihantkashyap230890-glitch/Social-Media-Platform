@@ -1,5 +1,9 @@
 from collections import Counter, defaultdict
+from html import unescape
+import json
 from typing import List, Optional, cast
+from urllib.parse import quote_plus
+from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -37,6 +41,98 @@ CATEGORY_HINTS = {
     "lifestyle": {"daily", "health", "home", "journey", "life", "mindset", "routine", "travel"},
     "general": {"community", "idea", "people", "share", "story", "thought"},
 }
+CHATBOT_USER_AGENT = "ConnectHubBot/1.0 (+https://connecthub.local)"
+
+
+def fetch_json(url: str) -> dict | list | None:
+    request = Request(
+        url,
+        headers={
+            "User-Agent": CHATBOT_USER_AGENT,
+            "Accept": "application/json",
+        },
+    )
+    try:
+        with urlopen(request, timeout=6) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except Exception:
+        return None
+
+
+def fetch_wikipedia_summary(query: str) -> tuple[str | None, str | None]:
+    search_url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={quote_plus(query)}&limit=1&namespace=0&format=json"
+    search_data = fetch_json(search_url)
+    if not isinstance(search_data, list) or len(search_data) < 2 or not search_data[1]:
+        return None, None
+
+    page_title = str(search_data[1][0]).replace(" ", "_")
+    summary_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote_plus(page_title)}"
+    summary_data = fetch_json(summary_url)
+    if not isinstance(summary_data, dict):
+        return None, None
+
+    extract = str(summary_data.get("extract") or "").strip()
+    page_url = (
+        summary_data.get("content_urls", {})
+        .get("desktop", {})
+        .get("page")
+    )
+    return extract or None, str(page_url) if page_url else None
+
+
+def fetch_duckduckgo_answer(query: str) -> tuple[str | None, str | None]:
+    url = f"https://api.duckduckgo.com/?q={quote_plus(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=0"
+    data = fetch_json(url)
+    if not isinstance(data, dict):
+        return None, None
+
+    abstract = unescape(str(data.get("AbstractText") or "")).strip()
+    if abstract:
+        source_url = str(data.get("AbstractURL") or "").strip() or None
+        return abstract, source_url
+
+    answer = unescape(str(data.get("Answer") or "")).strip()
+    if answer:
+        return answer, None
+
+    related_topics = data.get("RelatedTopics") or []
+    for topic in related_topics:
+        if isinstance(topic, dict) and topic.get("Text"):
+            return unescape(str(topic["Text"])).strip(), str(topic.get("FirstURL") or "").strip() or None
+        if isinstance(topic, dict) and isinstance(topic.get("Topics"), list):
+            for nested in topic["Topics"]:
+                if isinstance(nested, dict) and nested.get("Text"):
+                    return unescape(str(nested["Text"])).strip(), str(nested.get("FirstURL") or "").strip() or None
+
+    return None, None
+
+
+def build_research_answer(query: str) -> tuple[str, float, list[str]]:
+    snippets: list[str] = []
+    sources: list[str] = []
+
+    wiki_summary, wiki_url = fetch_wikipedia_summary(query)
+    if wiki_summary:
+        snippets.append(f"Wikipedia says: {wiki_summary}")
+        if wiki_url:
+            sources.append(f"Wikipedia: {wiki_url}")
+
+    web_summary, web_url = fetch_duckduckgo_answer(query)
+    if web_summary:
+        snippets.append(f"Web result says: {web_summary}")
+        if web_url:
+            sources.append(f"Web: {web_url}")
+
+    if not snippets:
+        return (
+            "I couldn't find a confident external answer right now. Try asking a more specific question with a person, place, event, or topic name.",
+            0.28,
+            [],
+        )
+
+    combined = " ".join(snippets[:2])
+    sources_text = f" Sources: {' | '.join(sources[:2])}." if sources else ""
+    return combined + sources_text, 0.78 if len(snippets) > 1 else 0.64, sources[:2]
 
 
 def tokenize(text: str) -> List[str]:
@@ -174,8 +270,8 @@ async def assistant_chat(payload: ChatRequest):
     msg = payload.message.lower()
     intent = "general"
     confidence = 0.95
-    response_text = "I'm your Connect Hub assistant. I can help with posts, AI Studio, or recommendations."
-    suggestions = ["How do recommendations work?", "What is AI Studio?", "Help me improve my draft"]
+    response_text = "I'm your Connect Hub assistant. I can help with posts, AI Studio, recommendations, and general questions."
+    suggestions = ["How do recommendations work?", "What is AI Studio?", "Who is Ada Lovelace?"]
     insights = None
 
     if "recommend" in msg:
@@ -188,10 +284,18 @@ async def assistant_chat(payload: ChatRequest):
             response_text = f"I've analyzed your draft. Its sentiment is {insights.sentiment} and I estimate an engagement score of {insights.engagement_score}. {insights.improvement_tip}"
         else:
             response_text = "Write something in the composer first, then I can help you improve the draft."
-    elif "hub" in msg or "what is" in msg:
+    elif "connect hub" in msg or ("hub" in msg and "connect" in msg):
         response_text = "Connect Hub is a social platform focused on thoughtful sharing and AI-assisted content discovery."
     elif "post" in msg or "create" in msg:
         response_text = "You can create a post using the composer on your dashboard. Don't forget to pick a category!"
+    else:
+        intent = "research_answer"
+        response_text, confidence, _sources = build_research_answer(payload.message)
+        suggestions = [
+            "Give me a short summary",
+            "Explain it more simply",
+            "Show another example"
+        ]
 
     return ChatResponse(
         response=response_text,

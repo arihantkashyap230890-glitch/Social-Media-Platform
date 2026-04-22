@@ -17,7 +17,7 @@
     <header id="mainHeader" class="site-header">
         <div class="header-shell">
             <div class="brand-block">
-                <span class="eyebrow">Human-first social platform</span>
+                <span class="eyebrow">Human's Second Gen Social Media Platform</span>
                 <div class="brand-line">
                     <h1>Connect Hub</h1>
                     <span class="brand-pill">Calm by design</span>
@@ -254,15 +254,25 @@
         </section>
 
         <section id="explorePage" class="container" style="display: none;">
-            <div class="section-card">
-                <div class="section-heading">
-                    <div>
-                        <span class="section-kicker">Community Discovery</span>
-                        <h2>Explore</h2>
+            <div class="section-card explore-shell">
+                <div class="explore-hero">
+                    <div class="section-heading">
+                        <div>
+                            <span class="section-kicker">Discovery Mode</span>
+                            <h2>Explore</h2>
+                            <p class="section-meta">A scrolling wall of creator posts, internet finds, short videos, and AI-inspired visuals.</p>
+                        </div>
+                        <button id="closeExploreBtn" class="utility-btn" type="button">Back to feed</button>
                     </div>
-                </div>
-                <div class="explore-controls">
-                    <input type="text" id="exploreSearchInput" placeholder="Search media, topics, or creators..." />
+                    <div class="explore-controls">
+                        <input type="text" id="exploreSearchInput" placeholder="Search creators, trends, visuals, or topics..." />
+                    </div>
+                    <div class="explore-pills">
+                        <span>Trending visuals</span>
+                        <span>Short videos</span>
+                        <span>Community posts</span>
+                        <span>AI concepts</span>
+                    </div>
                 </div>
                 <div id="exploreGrid" class="explore-grid"></div>
             </div>
