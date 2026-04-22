@@ -3208,7 +3208,7 @@ getStartedBtn.addEventListener("click", showAuthModal);
 learnMoreBtn.addEventListener("click", () => {
     document.querySelector(".about-creator-section").scrollIntoView({ behavior: "smooth" });
 });
-exploreBtn.addEventListener("click", showExplorePage);
+exploreBtn?.addEventListener("click", showExplorePage);
 exploreSearchInput?.addEventListener("input", loadExploreGrid);
 launchChallengeBtn?.addEventListener("click", () => {
     if (!currentUser) {
